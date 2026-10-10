@@ -1,0 +1,1164 @@
+
+
+===== PDF page 1 =====
+
+NeuralMUSIC: A Hybrid Neural–Subspace Framework for Robot
+Sound Source Localization
+Yizhuo Yang, Junqiao Fan, Shenghai Yuan ∗,Member, IEEE, Lihua Xie,Fellow, IEEE
+Abstract— Reliable sound source localization is fundamental
+to robot audition, enabling autonomous robots to perceive
+spatial cues and operate effectively in dynamic environments.
+Classical methods such as Multiple Signal Classification (MU-
+SIC) offer strong theoretical foundations but degrade under low
+signal-to-noise ratios. While deep learning–based approaches
+achieve promising performance, they often struggle with limited
+generalization across conditions. To address these challenges, we
+propose NeuralMUSIC, a hybrid neural–subspace framework
+for robotic sound source localization. Specifically, a neural
+network first estimates the spatial covariance matrix from mul-
+tichannel microphone observations. The predicted covariance
+is then integrated into a classical MUSIC pipeline with eigen-
+value decomposition (EVD) and pseudo-spectrum computation,
+followed by a Frequency Attention Fusion (FAF) module to
+produce the final DOA estimates. To improve data efficiency,
+we further introduce a Self-supervised Spatial Correlation
+Learning (SSCL) strategy that leverages unlabeled acoustic
+data to capture spatial structure. Extensive experiments across
+different robotic tasks demonstrate that NeuralMUSIC achieves
+competitive localization accuracy while exhibiting improved ro-
+bustness and cross-domain generalization. The code is available
+at: https://github.com/yizhuoyang/NeuralMUSIC.git.
+I. INTRODUCTION
+Sound source localization (SSL) is a fundamental com-
+ponent of robot audition, providing robots with spatial
+awareness of their acoustic environment and enabling in-
+telligent interaction with surrounding agents. By estimating
+the Direction of Arrival (DOA) of sound sources, robots
+are able to effectively track active speakers [1], support
+human–robot interaction [2] and perceive dynamic agents
+in the surrounding environment [3]–[5]. However, achieving
+reliable DOA estimation in real-world robotic environments
+remains challenging due to noise, reverberation, multiple
+concurrent sound sources, and variations in acoustic environ-
+ments and microphone configurations, which demand SSL
+methods with strong robustness and generalization capability.
+Traditional SSL methods estimate the DOA by exploiting
+spatial correlations across microphone arrays. Representative
+approaches include cross-correlation-based delay estimation
+(e.g., GCC-PHAT [6]), steered response power methods
+Y . Yang, J. Fan and S. Yuan are with the School of Electrical and
+Electronic Engineering, Nanyang Technological University. Address: 50
+Nanyang Avenue, Singapore 639798. L. Xie is with NTU–VinUni Joint
+Research Laboratory for Embodied AI and Robotics, School of Electrical
+and Electronic Engineering, Nanyang Technological University, Singapore
+639798 and VinUniversity, Hanoi, Vietnam. ∗Corresponding author. Email:
+YIZHUO001@e.ntu.edu.sg{shyuan,elxie}@ntu.edu.sg
+This work is supported by the National Research Foundation, Singapore,
+under its Medium-Sized Centre funding scheme through the Centre for
+Advanced Robotics Technology Innovation (CARTIN).
+Fig. 1: (a) Pipeline of NeuralMUSIC framework. (b) t-SNE
+visualization of DOA embeddings. The proposed method
+forms compact and well-separated clusters while preserving
+the intrinsic angular continuity of the DOA manifold, en-
+abling physically consistent spatial representations and more
+reliable auditory perception for robots.
+such as SRP-PHAT [7], and subspace techniques like Mul-
+tiple Signal Classification (MUSIC) [8], which construct
+the spatial covariance matrix and exploit its eigenstructure
+to separate signal and noise subspaces for high-resolution
+localization. Although effective in controlled settings, these
+classical methods rely on accurate array calibration and ideal-
+ized signal assumptions. Their performance often degrades in
+low-SNR and reverberant environments commonly encoun-
+tered by mobile robots operating in real-world settings.
+With the rapid advancement of deep learning, data-driven
+approaches have been widely explored for SSL. For example,
+Qayyum et al. [9] utilized an end-to-end 1D dilated CNN
+to regress azimuth and elevation from raw multichannel
+audio captured by a drone for search-and-rescue. Wu et al.
+[10] employed CNN and GRU layers to extract spatial and
+temporal–spectral features from footstep sounds for pedes-
+trian localization. These deep learning–based approaches
+improve robustness to noise and reverberation in complex
+acoustic environments. However, they often operate as black
+boxes with limited physical interpretability and exhibit poor
+generalization to unseen environments or different array
+geometries. These limitations hinder reliable deployment on
+robots operating in dynamic environments.
+To overcome the limitations of both model-based and
+purely data-driven paradigms, hybrid SSL frameworks have
+recently emerged as a promising research direction. For
+instance, Nguyen et al. [11] proposed UNet-rootMUSIC,
+which combines a UNet with the rootMUSIC algorithm to
+map distorted covariance matrices to ideal ones for accurate
+DOA estimation under array imperfections. SubspaceNet
+arXiv:2606.18664v3  [cs.SD]  8 Jul 2026
+
+===== PDF page 2 =====
+
+[12] employs a CNN autoencoder to learn covariance rep-
+resentations from empirical correlations and incorporates a
+differentiable Root-MUSIC layer for end-to-end training.
+Despite promising results, these hybrid methods have several
+limitations for robotic audition. First, the existing approaches
+[11]–[13] are designed for narrowband radar or commu-
+nication signals and do not fully address the broadband
+nature of acoustic signals. Second, many methods [11], [12]
+are restricted to specific array geometries such as uniform
+linear arrays (ULAs), limiting flexibility for diverse robotic
+platforms. Third, introducing additional neural modules after
+the classical pipeline often reduces interpretability and may
+weaken generalization [13].
+Another practical challenge in robotic SSL is the scarcity
+of labeled data. Obtaining multichannel recordings with
+accurate DOA annotations is labor-intensive and often re-
+quires carefully controlled experimental setups or additional
+tracking systems to provide ground-truth source locations.
+In contrast, large amounts of unlabeled acoustic data can be
+naturally collected during routine robot operation in diverse
+environments. Effectively leveraging such data is therefore
+crucial for developing scalable and practical robot audition
+systems.
+To address the above challenges, we propose Neural-
+MUSIC, a hybrid subspace framework that integrates deep
+representation learning with the classical MUSIC algorithm
+for robust DOA estimation in robotic audition. Specifically, a
+neural covariance encoder is designed to learn noise-resilient
+spatial representations while preserving the analytical struc-
+ture of subspace decomposition. To address the broadband
+nature of acoustic signals, we introduce a Frequency Atten-
+tion Fusion (FAF) module that adaptively integrates spatial
+cues across frequency bands. An adaptive source-number
+estimation module further enables reliable multi-source lo-
+calization in dynamic and low-SNR environments. Addition-
+ally, a Self-supervised Spatial Correlation Learning (SSCL)
+strategy is developed to leverage unlabeled multichannel
+recordings, improving robustness while reducing reliance on
+annotated data. The main contributions of this work are
+summarized as follows:
+1) We propose NeuralMUSIC, a unified hybrid frame-
+work that combines neural covariance learning with the
+classical subspace algorithm, providing accurate and
+reliable localization under low-SNR and reverberant
+environments.
+2) We introduce a frequency-adaptive fusion module and
+a dynamic source-number estimation mechanism to
+enable broadband feature aggregation and robust multi-
+source localization.
+3) We introduce a self-supervised pretraining strategy
+that exploits inter-channel spatial correlations from
+unlabeled acoustic data, improving data efficiency and
+accuracy.
+4) Comprehensive experiments across diverse robot au-
+dition tasks validate that NeuralMUSIC achieves su-
+perior localization accuracy, robustness, and cross-
+environment generalization.
+II. SYSTEMMODEL ANDPRELIMINARY
+A. Signal Model
+Consider a uniform linear array (ULA) withNmicro-
+phones spaced byd, receivingMfar-field acoustic sources
+with directions of arrival (DOAs)
+θ= [θ 1, . . . , θM]⊤,(1)
+whereθ m (m= 1,2, ..., M)denotes the DOA of them-th
+source andcis the speed of sound. The signal at then-th
+microphone is
+xn(t) =
+MX
+m=1
+sm(t−τ n(θm)) +v n(t),(2)
+wheres m(t)is them-th source signal,v n(t)is additive
+noise, and the propagation delay relative to the first micro-
+phone is
+τn(θm) = (n−1)dsinθ m
+c .
+Applying the short-time Fourier transform (STFT) gives
+Xn(f, t) =
+MX
+m=1
+e−j2πf τn(θm)Sm(f, t) +V n(f, t),(3)
+wherefdenotes frequency andtthe time frame index.
+Stacking all microphone signals into a vector yields the
+array observation model:
+X(f, t) =A(f,θ)S(f, t) +V(f, t),(4)
+whereX(f, t),S(f, t), andV(f, t)denote the observation,
+source, and noise vectors. The steering matrix is
+A(f,θ) = [a(f, θ 1), . . . ,a(f, θM)],(5)
+a(f, θ) = [1, e −j2πf τ(θ) , . . . , e −j2πf(N−1)τ(θ) ]⊤,(6)
+whereτ(θ) = dsinθ
+c . The formulation is presented using a
+ULA for clarity, but the framework is not restricted to ULA
+and can be extended to arbitrary microphone arrays.
+B. Subspace-Based Localization (MUSIC)
+For a given frequencyf, assuming stationary and uncor-
+related sources, the spatial covariance matrix of the array
+observation is
+Rx(f) =E
+
+X(f, t)XH(f, t)
+
+=A(f)R s(f)A H(f) +σ 2
+v(f)I N . (7)
+whereR s(f) =E[S(f)S H(f)]is the source covariance
+matrix,σ 2
+v(f)denotes the spatially white noise power, and
+IN is theN×Nidentity matrix.
+Eigenvalue decomposition (EVD) ofR x(f)gives
+Rx(f) =E s(f)Λ s(f)E H
+s (f) +E n(f)Λ n(f)E H
+n (f),(8)
+whereE s(f)∈C N×M andE n(f)∈C N×(N−M) denote the
+signal and noise subspaces, respectively.Λ s(f)andΛ n(f)
+are diagonal matrices of the corresponding eigenvalues.
+
+===== PDF page 3 =====
+
+Fig. 2: Overall architecture of the proposed hybrid neural–subspace framework for robot audition.
+Since the steering vectors lie in the signal subspace, they
+are orthogonal to the noise subspace:
+EH
+n (f)a(f, θ m) =0, m= 1, . . . , M.(9)
+This orthogonality leads to the MUSIC pseudo-spectrum
+PMU(θ;f) = 1
+∥EHn (f)a(f, θ)∥ 2
+2
+,(10)
+and the DOAs are estimated from theMdominant peaks
+ofP MU(θ;f). Since acoustic signals are inherently broad-
+band, spanning multiple frequency bands and resulting
+in frequency-dependent signal and noise subspaces, many
+broadband MUSIC extensions have been developed to per-
+form cross-frequency integration, commonly through non-
+coherent spectral averaging [14] or coherent subspace focus-
+ing [15].
+However, when deployed in real-world robotic acoustic en-
+vironments, MUSIC encounters several practical challenges:
+•Noise sensitivity:Covariance estimation is easily dis-
+torted by noise and reverberation, leading to subspace
+leakage and degraded localization accuracy.
+•Source-number reliance:The number of active sources
+must be specified in advance and incorrect estimation
+results in missed detections or spurious peaks.
+•Limited broadband processing:Existing broadband
+extensions rely on heuristic averaging or handcrafted
+focusing, which reduces robustness.
+These limitations motivate hybrid neural–subspace ap-
+proaches that enhance covariance estimation while preserv-
+ing the generalization ability of MUSIC.
+III. PROPOSEDMETHOD: NEURALMUSIC
+Fig. 2 illustrates the overall architecture of the proposed
+method. The NeuralMUSIC DOA estimation framework inte-
+grates a learned spatial covariance estimator into the classical
+MUSIC algorithm to produce a more robust and accurate
+pseudo-spectrum for sound source localization, while retain-
+ing the generalization ability. To further improve robustness
+and data efficiency, SSCL is introduced to leverage unlabeled
+multichannel data. This section provides a detailed descrip-
+tion of each module.
+A. Neural Covariance Matrix Estimation
+Letx(t) = [x 1(t), . . . , xN(t)]⊤ denote the multichannel
+audio recorded by anN-microphone array. Applying the
+short-time Fourier transform (STFT) yields the complex
+spectrogramX∈C N×F×L , whereFis the total number
+of frequency bins andLis the time length. The network
+input is constructed by stacking magnitude and phase of the
+spectrogram:
+Y=
+
+|X(f, t)|;∠X(f, t)
+
+∈R 2N×F×L .(11)
+We first employ an encoderF enc(·;ϕ)to extract spatial
+features:
+FY =F enc(Y;ϕ)∈R F×D ,(12)
+whereDdenotes the latent feature dimension. The rep-
+resentationF Y captures inter-channel spatial correlations
+across time and frequency. The encoder is implemented
+as a lightweight convolutional network composed of four
+convolutional blocks with3×3kernels and progres-
+sive max-pooling. This hierarchical design captures local
+time–frequency patterns in early layers and aggregates cross-
+microphone spatial dependencies in deeper layers. The final
+feature map is projected to the desired latent dimension for
+subsequent covariance regression.
+Each frequency component in encoded featureF Y(f)
+is then mapped to the spatial covariance matrix through a
+regression network:
+ˆRx(f) =F reg(FY(f);θ) =WF Y(f)+b, f= 1, . . . , F,
+(13)
+whereW∈R 2N 2×D andb∈R 2N 2
+are learnable
+parameters. The regressor outputs the real and imaginary
+components, which are reshaped and combined to form
+ˆRx(f)∈C N×N .
+
+===== PDF page 4 =====
+
+To enable stable eigen-decomposition for subsequent sub-
+space extraction, the estimated covariance matrix is sym-
+metrized to enforce Hermitian structure:
+ˆRx(f) = 1
+2
+
+ˆRx(f) + ˆRH
+x (f)
+
+.(14)
+A small diagonal loading term is further added prior to eigen-
+decomposition to enhance numerical robustness. Instead of
+explicitly enforcing positive semi-definiteness through hard
+constraints, this strategy stabilizes the subspace computation
+while retaining flexibility for data-driven learning of spatial
+correlations.
+B. Source Number Prediction
+In real robotic environments, the number of active sound
+sources may vary over time. To enable adaptive subspace
+decomposition, we introduce a source-number prediction
+branch. Given the input feature tensorY, a parallel neural
+branchF num(·;ψ)is employed to predict the most likely
+source count:
+ˆM=F num(Y;ψ),(15)
+where ˆM∈ {1, . . . , M max}denotes the estimated number of
+sources. In this paper,F num(·;ψ)consists of convolutional
+layers for extracting spatial cues from multichannel features,
+followed by MLPs to predict the source count.
+The predicted ˆMdetermines the dimension of the signal
+subspace in eigenvalue decomposition, where the leading
+ˆMeigenvectors are assigned to the signal subspace and the
+remaining correspond to the noise subspace. This mechanism
+allows the system to adapt to dynamic multi-source robotic
+environments without manual model-order selection.
+C. DOA Spectrum Estimation and Frequency Attention Fu-
+sion (FAF)
+Given the estimated covariance matrices ˆRx(f)and the
+predicted source number ˆM, we perform eigenvalue decom-
+position:
+ˆRx(f) = ˆUs(f) ˆΛs(f) ˆUH
+s (f) + ˆUn(f) ˆΛn(f) ˆUH
+n (f),
+(16)
+where ˆUn(f)∈C N×(N− ˆM) and ˆUs(f)∈C N× ˆM denotes
+the estimated noise subspace and signal subspace. ˆΛs(f)and
+ˆΛn(f)are diagonal matrices of the corresponding eigenval-
+ues.
+The frequency-wise pseudo-spectrum is computed as
+ˆP(f, θ) = 1
+aH(f, θ) ˆUn(f) ˆUHn (f)a(f, θ)
+.(17)
+To aggregate information across frequency bins, we in-
+troduce a Frequency Attention Fusion (FAF) module. Let
+Θ ={θ 1, . . . , θ|Θ|}denote the predefined discrete angular
+grid. For each steering angleθ∈Θ, the frequency-wise
+spectrum is stacked as
+p(θ) =
+ ˆP(1, θ), . . . , ˆP(F, θ)
+⊤
+∈R F .(18)
+The attention weights are computed via global average
+pooling followed by a two-layer transformation:
+z= 1
+|Θ|
+X
+θ∈Θ
+p(θ)∈R F ,(19)
+α=σ(W f2 δ(Wf1z)),α∈R F ,(20)
+whereW f1 ∈R
+F
+r ×F ,W f2 ∈R F× F
+r are learnable weight
+matrices with reduction ratior,δ(·)denotes ReLU, andσ(·)
+denotes the sigmoid function.
+The final broadband spectrum is obtained by weighted
+aggregation:
+ˆP(θ) =
+FX
+f=1
+αf ˆP(f, θ),(21)
+whereα f denotes thef-th element of the attention vector
+α∈R F . FAF adaptively reweights frequency bins, sup-
+pressing unreliable or noise-dominated components while
+emphasizing informative bands. This allows the model to
+focus on task-relevant frequency regions under different
+robotic tasks.
+Finally, the DOA estimates{ ˆθm} ˆM
+m=1 are obtained by
+selecting the ˆMlargest local maxima of the broadband
+spectrum ˆP(θ)over the angular gridΘ.
+D. Training Objectives
+Instead of directly regressing discrete DOA angles [12],
+[13], the proposed network predicts a continuous broadband
+spectrum ˆP(θ)over the predefined angular gridΘ. This
+representation provides smoother gradients for optimization,
+facilitates stable training, and naturally supports multi-source
+scenarios through peak detection. Moreover, it aligns with
+human auditory perception, where sound localization is often
+interpreted as a spatial likelihood distribution rather than a
+single deterministic angle.
+To supervise the spectrum prediction, we construct a
+ground-truth spectrumP(θ)by placing Gaussian kernels
+centered at the true DOAs{θ i}M
+i=1:
+P(θ) =
+MX
+i=1
+exp
+
+−(θ−θ i)2
+2σ2
+
+,(22)
+The DOA loss is defined as the mean squared error:
+LDOA = 1
+|Θ|
+X
+θ∈Θ
+  ˆP(θ)−P(θ)
+2
+.(23)
+In addition, to supervise the source-number prediction
+module, we employ a cross-entropy loss:
+Lcls = CE( ˆM , Mgt).(24)
+The overall training objective is given by
+L=L DOA +λL cls,(25)
+whereλbalances the two objectives.
+
+===== PDF page 5 =====
+
+TABLE I: MAAE ( ◦) comparison across different datasets and source configurations. UN denotes the unknown source-
+number setting. The best results are highlighted in bold, and the second-best results are underlined.
+Method GSC A V16.3 Single-Source Tasks
+M=1M=2M=UNM=1M=2M=UN SLoClas AFPILD
+MUSIC 3.96 47.77 25.87 15.45 33.56 24.51 8.93 16.02
+NormMUSIC 1.97 55.91 28.94 14.33 42.33 28.33 5.96 15.90
+Beamforming 2.47 61.47 31.97 14.39 32.18 23.29 7.50 21.49
+TOPS 5.14 49.78 27.46 19.26 25.07 22.17 16.29 64.40
+FRIDA 13.01 41.39 27.20 37.35 45.20 41.28 26.11 56.71
+CRNN 2.77 9.30 7.70 12.05 13.14 18.38 3.37 10.55
+Transformer 1.77 5.80 4.53 19.26 13.61 20.24 3.59 11.16
+DOANet 1.49 6.08 3.90 14.10 14.33 20.54 3.60 12.78
+DeepDAE 4.05 9.27 7.13 14.34 14.10 21.11 3.87 17.29
+DeepMusic 2.37 16.99 10.57 10.89 13.40 16.44 5.80 14.98
+DA-Music 4.31 11.42 8.87 11.10 11.45 15.15 4.87 15.72
+Ours 1.41 2.25 2.14 7.64 11.17 13.51 2.91 10.24
+E. Self-supervised Spatial Correlation Learning (SSCL)
+To exploit unlabeled acoustic data collected during routine
+operation. We introduce a Self-supervised Spatial Correlation
+Learning (SSCL) strategy.
+Given the input featureY, we first randomly select one
+microphone channel indexn ∗ ∈ {1, . . . , N}. On the spectro-
+gram of the selected channel, we apply masking operations to
+its magnitude and phase components, resulting in a partially
+observed tensor ˜Y. Specifically, we design three masking
+strategies on the selected channel: (i)Time masking, where
+contiguous time segments are set to zero. (ii)Frequency
+masking, where continuous frequency bands are masked. and
+(iii)Random masking, where time–frequency elements are
+randomly dropped. Illustrations of these masking schemes
+are shown in Fig. 2. Unlike conventional masked recon-
+struction in speech representation learning, SSCL exploits
+inter-channel dependencies induced by acoustic propagation,
+encouraging the network to capture spatial correlations.
+The encoderF enc first extracts a latent representation by
+Eq. 12, using the masked input ˜Yinstead ofY. Then, the
+decoder reconstructs the masked channel:
+ˆYn∗ =F dec( ˜Y;η).(26)
+The reconstruction loss is defined as
+Lrec =
+ ˆYn∗ −Y n∗
+
+2
+2
+.(27)
+By reconstructing the missing channel from the remaining
+microphones, the encoderF enc is encouraged to capture
+cross-channel spatial dependencies induced by acoustic prop-
+agation delays and inter-microphone phase relationships.
+Such dependencies directly correspond to the structural in-
+formation encoded in the spatial covariance matrix ˆRx(f).
+Therefore, SSCL provides a well-informed initialization for
+neural covariance estimation, improving robustness and data
+efficiency in downstream supervised training.
+Fig. 3: (a). ReSpeaker microphone array used in the GSC ex-
+perimental setting. (b)–(d). Experimental environments and
+sample for SLoClas, A V16.3, and AFPILD datasets.
+IV. EXPERIMENTS
+A. Experimental Setting
+Datasets:We evaluate the proposed method on multiple
+robotic audition tasks across diverse datasets, including
+Google Speech Commands (GSC) [16] and A V16.3 [17]
+for speaker localization, SLoClas [18] for acoustic event
+localization, and AFPILD [10] for pedestrian localization
+based on footstep sounds. For the GSC dataset, we select
+speech samples and generate multichannel recordings us-
+ing the Pyroomacoustics [19] platform, incorporating room
+reverberation and environmental noise to emulate realistic
+acoustic conditions and we adopt the microphone setting as
+ReSpeaker1 array shown in Fig. 3 (a). More detailed exper-
+1https://wiki.seeedstudio.com/ReSpeaker_Mic_
+Array_v2.0/
+
+===== PDF page 6 =====
+
+Fig. 4: Qualitative comparison under different source configurations on A V16.3 dataset.
+TABLE II: Ablation study of the proposed method on
+different datasets (MAAE in ◦).
+Ablation GSC A V16.3 SLoClas AFPILD
+w/o FAF 1.47 8.31 2.93 10.42
+w/o SSCL 1.52 10.00 3.17 10.69
+Ours1.41 7.64 2.91 10.24
+imental configurations are provided in the public repository.
+Comparison Methods and Evaluation Metrics:We com-
+pare the proposed method with both classical subspace-based
+approaches and recent deep learning–based methods. The
+traditional baselines include MUSIC [8], NormMUSIC [14],
+Beamforming [7], TOPS [20] and FRIDA [21]. The learning-
+based methods include DeepDAE [22], DeepMusic [23],
+CRNN [10], Transformer [24], and DOANet [9], while DA-
+Music [13] is considered as a representative hybrid method
+that combines model-based and data-driven strategies.
+To evaluate localization accuracy, we adopt the Mean Ab-
+solute Angular Error (MAAE), which accounts for angular
+periodicity. For a predicted DOA ˆθand ground-truth DOA
+θ, the circular error is computed as
+e(ˆθ, θ) =
+
+
+(ˆθ−θ+ 180 ◦) mod 360◦
+
+−180 ◦
+ .(28)
+The MAAE is defined as
+MAAE = 1
+H
+HX
+h=1
+e(ˆθh, θh),(29)
+whereHdenotes the number of test samples.
+Implementation Details:In the experiments, the STFT is
+computed using a window length and FFT size of 512, with
+a hop length of 256. The resulting spectrograms are resized
+to257×64for all datasets. The azimuth search spaceΘ
+is discretized over[0 ◦,360 ◦)with a resolution of1 ◦. The
+network is trained using the Adam optimizer with an initial
+learning rate of1×10 −3 for 100 epochs, and theλis set to
+0.5. The batch size is set to 32. All deep-learning models are
+trained on a NVIDIA RTX 4090 GPU. In the experiments,
+we focus on azimuth estimation, as it aligns with typical
+planar microphone configurations in robotic audition and
+provides the primary cue for horizontal localization. For
+classical methods requiring the source number a priori,
+the ground-truth source count is provided to avoid unfair
+penalization in the unknown-source setting.
+Fig. 5: Performance versus different training sample ratios.
+B. Comparison Experiments
+The performance of different methods is shown in Table I.
+On GSC dataset, the proposed method consistently achieves
+the lowest MAAE across all source configurations. No-
+tably, under multi-source conditions our method significantly
+outperforms both traditional approaches and deep learning
+baselines, reducing the error from 5.80 ◦ (Transformer) and
+6.08◦ (DOANet) to 2.25◦. On the real-world A V16.3 dataset,
+our method also achieves the best performance in all configu-
+rations. For single speaker localization, the proposed method
+achieves a MAAE of 7.64 ◦, which is 6.69 ◦ and 3.25◦ lower
+than NormMUSIC and DeepMusic. In the more challenging
+unknown source number setting, it achieves the MAAE
+of 13.51 ◦, outperforming all other compared methods. The
+results demonstrate the effectiveness of the proposed frame-
+work under real acoustic conditions with reverberation and
+environmental noise. Some of the localization results are
+visualized in Fig. 4. The proposed method accurately predicts
+the number of active sound sources under different scenarios.
+Meanwhile, it generates precise pseudo-spectra with sharp
+peaks aligned with the true DOAs.
+For acoustic event localization (SLoClas) and footstep-
+based pedestrian localization (AFPILD) task, the proposed
+method also achieves the lowest errors of 2.91 ◦ and 10.24 ◦,
+respectively. Compared with the best competing deep model
+(Transformer), our method improves the localization accu-
+racy by 1.32 ◦ and 0.92 ◦. Overall, the proposed method
+demonstrates consistent superiority across diverse tasks,
+source configurations, and acoustic conditions.
+
+===== PDF page 7 =====
+
+Fig. 6: Performance versus different SNR.
+C. Ablation Study
+To investigate the contribution of each proposed com-
+ponent, we conduct ablation experiments by removing the
+Frequency Attention Fusion (FAF) module and the self-
+supervised Spatial Correlation Learning (SSCL) strategy,
+respectively. Table II reports the MAAE results on all
+evaluated datasets. Removing the FAF module leads to
+consistent performance degradation on most datasets. On
+A V16.3, the MAAE increases from 7.64 ◦ to 8.31 ◦, and
+similar degradations are observed on other datasets. This
+confirms that frequency-wise adaptive weighting improves
+broadband spectrum aggregation by suppressing noisy or
+less informative frequency components while emphasizing
+reliable spectral cues. Such adaptive reweighting enhances
+the stability of DOA estimation under varying acoustic con-
+ditions. When SSCL is removed, the performance drops more
+noticeably. This demonstrates that learning inter-channel
+spatial correlations from unlabeled acoustic data provides a
+better initialization for covariance estimation and enhances
+robustness in practical robotic tasks. And the full model con-
+sistently achieves the best performance across all datasets.
+D. Performance under Different Training Data Ratios
+To evaluate data efficiency, we train the models using
+different proportions of the GSC training set under the
+single-source setting. The results are shown in Fig. 5, where
+representative strong baselines are included for comparison.
+As the training data decreases, all learning-based methods
+exhibit performance degradation. However, even without
+SSCL, our base model remains more data-efficient than other
+baselines. This improved data efficiency may stem from
+the proposed neural–subspace design. Instead of directly
+regressing angles, the network learns a structured pseudo-
+spectrum guided by spatial covariance modeling and sub-
+space decomposition, which imposes strong physical priors
+and stabilizes training under limited supervision.
+Further incorporating SSCL brings additional improve-
+ments. At 40% training data, the error decreases from 1.83 ◦
+to 1.59 ◦ after introducing SSCL. The gain becomes more
+evident as the amount of labeled data reduces, demonstrating
+that SSCL enhances spatial representation learning. Overall,
+the proposed framework is inherently data-efficient, and
+Fig. 7: Illustration of the three rooms and microphone array
+configurations used for generalization evaluation.
+TABLE III: Comparison of MAAE ( ◦) under cross-room
+transfer (Room A→Room B and Room A→Room C) with
+and without one-shot fine-tuning.
+Method Room A→Room B Room A→Room C
+w/o FT w/ FT w/o FT w/ FT
+Music 5.40 5.40 4.69 4.69
+NormMUSIC 3.27 3.27 2.45 2.45
+Beamforming 3.37 3.37 3.56 3.56
+TOPS 6.81 6.81 5.19 5.19
+FRIDA 14.48 14.48 12.02 12.02
+CRNN 4.36 3.87 3.38 3.31
+Transformer 3.51 2.61 2.47 2.30
+DOANet 2.87 2.29 2.18 2.07
+DeepDAE 6.12 6.34 4.70 5.96
+DeepMusic 4.38 2.77 3.56 2.56
+DA-Music 5.41 4.48 4.78 3.99
+Ours 2.20 1.85 1.71 1.65
+SSCL further enhances this advantage, making the approach
+well suited for robotic tasks where collecting large-scale
+annotated acoustic data is costly and time-consuming.
+E. Robustness under Varying SNR Conditions
+We evaluate robustness under SNR levels from−5dB to
+20dB on GSC dataset, as shown in Fig. 6. As SNR decreases,
+our method consistently maintains competitive or superior
+performance across all noise levels. Specifically, at low SNR
+of0dB, most methods exhibit significant degradation, while
+the proposed method achieves5.29 ◦, outperforming other
+approaches. Notably, our method consistently outperforms
+traditional subspace-based approaches even under high SNR
+conditions. This gain is attributed to the learned covariance
+representation and adaptive frequency fusion, which stabilize
+spatial estimation while highlighting informative frequency
+bands.
+F . Generalization Testing
+To evaluate generalization, we further conduct transfer
+experiments. Two scenarios are considered as shown in Fig.
+7: (i) cross-array transfer, where the microphone geometry
+is changed, and (ii) cross-room transfer, where the acoustic
+environment differs. For each scenario, we evaluate both
+direct transfer (w/o FT) and one-shot fine-tuning (w/ FT),
+where only one labeled sample per discretized direction in
+Θis used for adaptation.
+
+===== PDF page 8 =====
+
+TABLE IV: Comparison of MAAE ( ◦) under cross-array
+transfer (Mic A→Mic B and Mic A→Mic C) with and
+without one-shot fine-tuning.
+Methods Mic A→Mic B Mic A→Mic C
+w/o FT w/ FT w/o FT w/ FT
+Music 4.41 4.41 5.19 5.19
+NormMUSIC2.412.41 2.91 2.91
+TOPS 5.78 5.78 6.39 6.39
+Beamforming 2.73 2.732.832.83
+FRIDA 15.54 15.54 16.38 16.38
+CRNN 5.64 3.73 6.42 3.56
+Transformer 5.00 2.33 5.54 2.27
+DOANet 5.12 1.98 5.94 2.02
+DeepDAE 6.52 5.26 6.91 5.48
+DeepMusic 7.31 2.96 5.81 3.01
+DA-Music 7.89 4.48 7.88 5.10
+Ours2.42 1.743.071.83
+Cross-Room Transfer.Table III shows similar trends
+under room changes. Our method consistently achieves the
+lowest MAAE both without and with fine-tuning, demon-
+strating strong robustness to environmental variations.Cross-
+Array Transfer.As shown in Table IV, most learning-based
+methods degrade under geometry mismatch. In contrast, our
+method maintains competitive accuracy without fine-tuning
+(2.42◦ and 3.07 ◦), and further improves to 1.74 ◦ and 1.83 ◦
+with one-shot adaptation, achieving the best performance.
+However, compared with classical methods, the proposed
+approach shows slightly weaker generalization under large
+array mismatches, likely due to its data-driven covariance
+regression being influenced by array-specific characteristics.
+Overall, the proposed framework exhibits superior trans-
+ferability across array geometries and acoustic environments
+compared with existing deep-learning-based methods. This
+property is essential for real-world deployment, where micro-
+phone configurations may change and robots are required to
+operate in unseen environments without extensive retraining.
+Feature Representation AnalysisTo analyze the learned
+spatial representations, we visualize the latent features using
+t-SNE in Fig. 1(b). Compared with baseline methods that
+produce fragmented clusters, NeuralMUSIC forms a smooth
+and continuous manifold, where neighboring angular direc-
+tions are arranged sequentially, revealing a clear circular
+topology consistent with azimuth periodicity. This structured
+embedding preserves angular continuity and contributes to
+more stable localization and improved generalization.
+V. CONCLUSION
+This paper presents a hybrid neural–subspace framework
+for robust sound source localization in robotic audition. The
+proposed method learns a spatial covariance representation
+from time–frequency features and integrates it into a MU-
+SIC pipeline with adaptive frequency fusion, combining the
+representation capacity of neural networks with the general-
+ization ability of subspace methods. A self-supervised spatial
+correlation learning strategy is further introduced to improve
+data efficiency. Extensive experiments on various robotic
+datasets demonstrate superior accuracy, noise robustness, and
+strong generalization across different environments. Future
+work will focus on geometry-invariant learning to strengthen
+cross-configuration generalization. In addition, we aim to
+further improve data efficiency to enable reliable localization
+under few-shot or even one-shot training settings.
+REFERENCES
+[1] Y . Masuyama, Y . Bando, K. Yatabe, Y . Sasaki, M. Onishi, and
+Y . Oikawa, “Self-supervised neural audio-visual sound source local-
+ization via probabilistic spatial modeling,” in2020 IEEE/RSJ Interna-
+tional Conference on Intelligent Robots and Systems (IROS), pp. 4848–
+4854, IEEE, 2020.
+[2] V . Liu, T. Du, J. Sehn, J. Collier, and F. Grondin, “Sound source
+localization for human-robot interaction in outdoor environments,” in
+2025 IEEE/RSJ International Conference on Intelligent Robots and
+Systems (IROS), pp. 6121–6126, IEEE, 2025.
+[3] Y . Yang, S. Yuan, M. Cao, J. Yang, and L. Xie, “Av-pedaware: Self-
+supervised audio-visual fusion for dynamic pedestrian awareness,” in
+2023 IEEE/RSJ International Conference on Intelligent Robots and
+Systems (IROS), pp. 1871–1877, IEEE, 2023.
+[4] M. Yang, P. Grady, S. Brahmbhatt, A. B. Vasudevan, C. C. Kemp,
+and J. Hays, “The un-kidnappable robot: Acoustic localization of
+sneaking people,” in2024 IEEE International Conference on Robotics
+and Automation (ICRA), pp. 985–992, IEEE, 2024.
+[5] Y . Schulz, A. K. Mattar, T. M. Hehn, and J. F. Kooij, “Hearing what
+you cannot see: Acoustic vehicle detection around corners,”IEEE
+Robotics and Automation Letters, vol. 6, no. 2, pp. 2587–2594, 2021.
+[6] H. Liu and M. Shen, “Continuous sound source localization based on
+microphone array for mobile robots,” in2010 IEEE/RSJ International
+Conference on Intelligent Robots and Systems, pp. 4332–4339, IEEE,
+2010.
+[7] J.-M. Valin, F. Michaud, B. Hadjou, and J. Rouat, “Localization
+of simultaneous moving sound sources for mobile robot using a
+frequency-domain steered beamformer approach,” inIEEE Interna-
+tional Conference on Robotics and Automation, 2004. Proceedings.
+ICRA’04. 2004, vol. 1, pp. 1033–1038, IEEE, 2004.
+[8] R. Schmidt, “Multiple emitter location and signal parameter estima-
+tion,”IEEE transactions on antennas and propagation, vol. 34, no. 3,
+pp. 276–280, 1986.
+[9] A. B. A. Qayyum, K. N. Hassan, A. Anika, M. F. Shadiq, M. M.
+Rahman, M. T. Islam, S. A. Imran, S. Hossain, and M. A. Haque,
+“Doanet: a deep dilated convolutional neural network approach for
+search and rescue with drone-embedded sound source localization,”
+EURASIP Journal on Audio, Speech, and Music Processing, vol. 2020,
+no. 1, p. 16, 2020.
+[10] S. Wu, S. Huang, Z. Liu, Q. Zhang, and J. Liu, “Afpild: Acoustic
+footstep dataset collected using one microphone array and lidar
+sensor for person identification and localization,”Information Fusion,
+vol. 104, p. 102181, 2024.
+[11] D.-T. Nguyen, T.-H. Le, V .-S. Doan, and V .-P. Hoang, “Unet-
+rootmusic: A high accuracy direction of arrival estimation method
+under array imperfection,”AEU-International Journal of Electronics
+and Communications, vol. 173, p. 155008, 2024.
+[12] D. H. Shmuel, J. P. Merkofer, G. Revach, R. J. Van Sloun, and
+N. Shlezinger, “Subspacenet: Deep learning-aided subspace methods
+for doa estimation,”IEEE Transactions on Vehicular Technology,
+2024.
+[13] J. P. Merkofer, G. Revach, N. Shlezinger, T. Routtenberg, and R. J.
+Van Sloun, “Da-music: Data-driven doa estimation via deep aug-
+mented music algorithm,”IEEE Transactions on Vehicular Technology,
+vol. 73, no. 2, pp. 2771–2785, 2023.
+[14] D. Salvati, C. Drioli, and G. L. Foresti, “Incoherent frequency fusion
+for broadband steered response power algorithms in noisy environ-
+ments,”IEEE Signal Processing Letters, vol. 21, no. 5, pp. 581–585,
+2014.
+[15] H. Wang and M. Kaveh, “Coherent signal-subspace processing for
+the detection and estimation of angles of arrival of multiple wide-
+band sources,”IEEE Transactions on Acoustics, Speech, and Signal
+Processing, vol. 33, no. 4, pp. 823–831, 1985.
+[16] P. Warden, “Speech commands: A dataset for limited-vocabulary
+speech recognition. arxiv 2018,”arXiv preprint arXiv:1804.03209,
+1804.
+
+===== PDF page 9 =====
+
+[17] G. Lathoud, J.-M. Odobez, and D. Gatica-Perez, “Av16. 3: An audio-
+visual corpus for speaker localization and tracking,” inInternational
+Workshop on Machine Learning for Multimodal Interaction, pp. 182–
+195, Springer, 2004.
+[18] X. Qian, B. Sharma, A. El Abridi, and H. Li, “Sloclas: A database for
+joint sound localization and classification,” in2021 24th Conference
+of the Oriental COCOSDA International Committee for the Co-
+ordination and Standardisation of Speech Databases and Assessment
+Techniques (O-COCOSDA), pp. 128–133, IEEE, 2021.
+[19] R. Scheibler, E. Bezzam, and I. Dokmani ´c, “Pyroomacoustics: A
+python package for audio room simulation and array processing
+algorithms,” in2018 IEEE international conference on acoustics,
+speech and signal processing (ICASSP), pp. 351–355, IEEE, 2018.
+[20] Y .-S. Yoon, L. M. Kaplan, and J. H. McClellan, “Tops: New doa esti-
+mator for wideband signals,”IEEE Transactions on Signal processing,
+vol. 54, no. 6, pp. 1977–1989, 2006.
+[21] H. Pan, R. Scheibler, E. Bezzam, I. Dokmani ´c, and M. Vetterli, “Frida:
+Fri-based doa estimation for arbitrary array layouts,” in2017 IEEE
+International Conference on Acoustics, Speech and Signal Processing
+(ICASSP), pp. 3186–3190, IEEE, 2017.
+[22] W. He, P. Motlicek, and J.-M. Odobez, “Deep neural networks for
+multiple speaker detection and localization,” in2018 IEEE Interna-
+tional Conference on Robotics and Automation (ICRA), pp. 74–79,
+IEEE, 2018.
+[23] A. M. Elbir, “Deepmusic: Multiple signal classification via deep
+learning,”IEEE Sensors Letters, vol. 4, no. 4, pp. 1–4, 2020.
+[24] S. Kuang, J. Shi, K. van der Heijden, and S. Mehrkanoon, “Bast: Bin-
+aural audio spectrogram transformer for binaural sound localization,”
+arXiv preprint arXiv:2207.03927, 2022.
+[25] X. Qian, A. Brutti, O. Lanz, M. Omologo, and A. Cavallaro, “Multi-
+speaker tracking from an audio–visual sensing device,”IEEE Trans-
+actions on Multimedia, vol. 21, no. 10, pp. 2576–2588, 2019.
+[26] J. Ji, W. Mao, F. Xi, and S. Chen, “Transmusic: A transformer-
+aided subspace method for doa estimation with low-resolution adcs,”
+inICASSP 2024-2024 IEEE International Conference on Acoustics,
+Speech and Signal Processing (ICASSP), pp. 8576–8580, IEEE, 2024.
+APPENDIX
+A. Datasets and Experimental Setup Details
+In the experiments, we compare the performance of the
+on four datasets, Google Speech Commands (GSC) [16],
+SoClas [18], AFPILD [10] and A V16.3 dataset [17]. These
+datasets cover different common robotics tasks including
+speaker localization, pedestrian detection and acoustic event
+localization. This section gives a detail description on the
+setting of each dataset.
+GSC Dataset. To train the proposed model, we construct
+a simulated acoustic dataset using speech signals from the
+Google Speech Commands (GSC) dataset as sound sources.
+Room acoustics are simulated using the Pyroomacoustics
+[19] toolkit with the image-source method. The simulated
+environment consists of a7×7×3m room with a sampling
+rate of 16 kHz, and additive noise is added with a signal-to-
+noise ratio (SNR) of 30 dB. The sound source is randomly
+positioned around the microphone array with a distance
+ranging from 0.5 m to 2.0 m and an azimuth angle uniformly
+distributed between0 ◦ and359 ◦ with a resolution of1 ◦.
+For each azimuth angle, 100 samples are generated for
+training and 25 samples are generated for testing, resulting
+in a uniformly distributed angular dataset for supervised
+direction-of-arrival (DOA) estimation.
+A V16.3 Dataset. A V16.3 is a widely used benchmark
+dataset for speaker localization and tracking in indoor envi-
+ronments. Following the A V3T [25] preprocessing pipeline,
+the raw recordings are processed and the dataset is divided
+Fig. 8: Masking strategy used in the proposed SSCL module
+and the corresponding reconstructed samples.
+such that sequencesseq8andseq18are used for testing,
+while the remaining sequences are used for training. This
+dataset is used to evaluate the generalization ability of the
+proposed method under multi-speaker conditions.
+SoClas Dataset [18]. The SoClas dataset contains acoustic
+recordings of various sound events designed for joint sound
+localization and classification. In our setup, the microphone
+array is placed at the center of the room while the sound
+source is positioned at a fixed distance of 1.5 m. The azimuth
+angle ranges from1 ◦ to360 ◦ with a5 ◦ interval. For each
+direction, 80% of the samples are randomly selected for
+training and the remaining 20% are used for testing in the
+experiments. This dataset evaluates the robustness of the
+proposed method for event-level sound localization.
+AFPILD Dataset. The AFPILD dataset focuses on pedes-
+trian localization using footstep sounds recorded by a mi-
+crophone array and a LiDAR sensor. We follow the official
+training and testing split provided by the dataset authors
+and conduct experiments using the cloth covariant config-
+uration (covariant type=’cloth’) according to the
+standard evaluation protocol. This dataset reflects a realistic
+robotic perception scenario for surrounding pedestrian local-
+ization.
+It is worth noting that the SoClas and AFPILD datasets
+do not explicitly provide the world coordinate system, mi-
+crophone coordinate system, or corresponding calibration
+files. As a result, traditional DOA estimation methods may
+exhibit systematic angular offsets when applied directly to
+these datasets. To ensure a fair comparison, we estimate the
+optimal angular offset between the predicted DOA and the
+ground truth during evaluation and report the results using
+the offset that yields the best performance for traditional
+methods.
+B. Training Details
+The proposed framework is trained in two stages: (1) the
+Self-supervised Spatial Correlation Learning (SSCL) stage
+and (2) the supervised NeuralMUSIC DOA estimation stage.
+In the SSCL stage, the model is trained for 400 epochs us-
+ing the Adam optimizer with a CosineAnnealingLR learning
+rate scheduler, and a batch size of 256. This self-supervised
+
+===== PDF page 10 =====
+
+Fig. 9: The predicted spectrum for different methods under
+0db noise.
+pretraining encourages the network to learn geometry-
+consistent spatial representations from multi-channel audio,
+which improves the robustness and generalization capability
+for subsequent sound source localization tasks.
+In the supervised NeuralMUSIC DOA estimation stage,
+the network is optimized using the Adam optimizer with an
+initial learning rate of1×10 −3 for 100 epochs. The balancing
+parameterλis set to 0.5 and the batch size is 32. All deep
+learning models are implemented in PyTorch and trained on
+a NVIDIA RTX 4090 GPU.
+C. DOA Estimation Results Visualization
+To provide a qualitative comparison of different ap-
+proaches, we visualize the DOA spectra generated by repre-
+sentative methods. Fig. 10 illustrates the localization results
+under different sound source number settings. It can be ob-
+served that the proposed method produces the most accurate
+and clean DOA spectra, with sharp peaks located around the
+ground-truth directions across different scenarios.
+In contrast, although traditional subspace-based meth-
+ods can achieve accurate localization in the single-source
+case, their performance degrades significantly when mul-
+tiple sources are present. DOANet [9] also demonstrates
+competitive performance under both single- and multi-source
+settings. However, compared with the proposed method, its
+predicted DOA spectra are less precise, exhibit stronger noise
+artifacts, and contain more spurious side lobes.
+Fig. 9 further presents the localization performance under
+low signal-to-noise ratio conditions (SNR = 0 dB), where
+additive white Gaussian noise (AWGN) is introduced into the
+simulated environment. A similar trend can be observed: the
+performance of classical methods deteriorates significantly
+and produces unreliable spectra. In contrast, the proposed
+method remains robust, generating the cleanest spectral re-
+sponses and providing the most accurate DOA estimates.
+D. Effectiveness of SSCL
+In order to better exploit the unlabeled data collected dur-
+ing robot operation, we introduce the Self-supervised Spatial
+Correlation Learning (SSCL) module. The masking strategy
+used in SSCL and examples of reconstructed samples are
+illustrated in Fig. 8.
+To evaluate whether SSCL benefits the downstream DOA
+estimation task, we compare the training curves under dif-
+ferent data ratios and source-number settings, as shown in
+Fig. 11. It can be observed that models initialized with SSCL
+consistently start from a lower initial loss, indicating a better
+initialization. Moreover, SSCL leads to faster convergence
+and achieves lower final training losses compared with mod-
+els trained from scratch. This trend remains consistent across
+different training data ratios and source-number conditions.
+These results demonstrate that SSCL provides an effective
+initialization and enables the network to learn more stable
+spatial representations, thereby improving both convergence
+efficiency and overall localization performance in down-
+stream sound source localization tasks.
+E. Data Efficiency Testing
+By incorporating physical prior knowledge and effectively
+leveraging unlabeled data through spatial correlation learn-
+ing, the proposed method achieves superior data efficiency
+compared with purely deep-learning-based approaches. We
+further evaluate the proposed method on two real-world
+datasets. The quantitative results are summarized in Table V,
+which further demonstrate the robustness and generalization
+capability of our approach in practical acoustic environments.
+On theSLoClasdataset, the proposed method achieves
+the lowest MAAE across all training ratios. Even when the
+training data is reduced to only20%, our method maintains
+a relatively low error of5.15 ◦, while most deep-learning-
+based methods exhibit noticeable performance degradation.
+On the more challengingAFPILDdataset, which involves
+real-world pedestrian localization scenarios, our method also
+consistently outperforms existing approaches. In particular,
+when only20%of the training data is used, our method
+achieves an MAAE of13.41 ◦, showing strong robustness
+under limited training data conditions.
+Overall, these results demonstrate that the proposed frame-
+work achieves superior localization accuracy while main-
+taining strong robustness and data efficiency across different
+acoustic environments.
+F . Generalization Test on Sparse Training
+To further evaluate the generalization capability of the
+proposed method, we conduct a more challenging experiment
+in which the models are trained only on sparsely sampled
+DOA angles while being evaluated on the full DOA range
+from0 ◦ to360 ◦. Specifically, during training, the DOA space
+is sampled at coarse angular intervals (e.g.,10 ◦,20 ◦, ...,
+350◦), whereas the testing phase covers the entire angular
+space with a1 ◦ resolution.
+The quantitative results are summarized in Table VI. It can
+be observed that the proposed method maintains accurate lo-
+calization performance even when trained with sparse angu-
+lar supervision. In particular, our method achieves the lowest
+MAAE under both sparse5 ◦ and10 ◦ training settings. These
+
+===== PDF page 11 =====
+
+Fig. 10: Predicted DOA spectra of different methods under varying numbers of sound sources.
+Fig. 11: Training loss curve under different training data ratio with (w/) and without (w/o) SSCL
+TABLE V: Mean Angular Absolute Error (MAAE in ◦) of different methods on theSLoClasandAFPILDdatasets under
+varying training ratios. Lower is better.
+Method SLoClas AFPILD
+100% 80% 60% 40% 20% 100% 80% 60% 40% 20%
+MUSIC 8.93 8.93 8.93 8.93 8.93 16.02 16.02 16.02 16.02 16.02
+NormMUSIC 5.96 5.96 5.96 5.96 5.96 15.90 15.90 15.90 15.90 15.90
+Beamforming 7.50 7.50 7.50 7.50 7.50 21.49 21.49 21.49 21.49 21.49
+TOPS 16.29 16.29 16.29 16.29 16.29 64.40 64.40 64.40 64.40 64.40
+CSSM 22.88 22.88 22.88 22.88 22.88 30.16 30.16 30.16 30.16 30.16
+W A VES 25.18 25.18 25.18 25.18 25.18 53.17 53.17 53.17 53.17 53.17
+FRIDA 26.11 26.11 26.11 26.11 26.11 56.71 56.71 56.71 56.71 56.71
+CRNN 3.37 3.87 4.72 4.78 6.71 10.55 10.82 10.8511.97 22.69
+Transformer 1.77 3.31 3.56 4.51 5.32 11.16 11.27 12.23 12.84 14.72
+DOANet 3.60 3.93 3.96 5.06 6.41 12.78 13.09 13.73 14.32 20.00
+DeepDAE 3.87 4.19 5.08 6.62 8.66 17.29 19.48 21.98 23.00 31.63
+DeepMusic 5.80 6.31 8.76 12.07 14.01 14.98 15.04 15.87 16.73 22.86
+DA-MUSIC 4.87 5.79 6.60 8.28 10.29 15.72 17.40 17.65 20.58 29.81
+Ours 2.91 3.13 3.33 3.96 5.15 10.42 10.4811.22 11.95 13.41
+results demonstrate that the proposed approach possesses
+strong interpolation capability and superior generalization
+compared with existing methods.
+G. Future Work
+The proposed NeuralMUSIC framework achieves strong
+performance in robot sound source localization by integrat-
+
+===== PDF page 12 =====
+
+TABLE VI: MAAE ( ◦) of different methods trained using
+sparse angular sampling (5° and 10° increments) and evalu-
+ated on the full DOA range.
+Methods Sparse 5° Training Sparse 10° Training
+MUSIC 3.96 3.96
+NormMUSIC 1.97 1.97
+Beamforming 2.47 2.47
+TOPS 5.14 5.14
+W A VES 17.04 17.04
+FRIDA 13.01 13.01
+CRNN 7.99 9.07
+Transformer 3.13 7.55
+DOANet 3.22 5.77
+DeepDAE 7.57 5.99
+DeepMusic 3.38 14.68
+DA-MUSIC 6.91 12.14
+Ours 1.892.35
+ing data-driven spatial representation learning with classical
+subspace-based signal processing. By combining physical
+priors with self-supervised spatial correlation learning, the
+method demonstrates improved robustness and data effi-
+ciency across both simulated and real-world datasets.
+Despite these advantages, several limitations remain. First,
+although the proposed method shows promising general-
+ization ability, it may still underperform traditional signal-
+processing methods when the training data are extremely
+limited, when the training distribution is highly imbalanced,
+or when the microphone array configuration differs signifi-
+cantly from the training setup. Future work will investigate
+incorporating stronger physical constraints and developing
+geometry-invariant learning mechanisms to improve cross-
+array and cross-environment generalization.
+Second, further improving data efficiency remains an im-
+portant direction. Although SSCL helps leverage unlabeled
+data, the model may still require a certain amount of la-
+beled samples to achieve optimal performance. Future work
+will explore few-shot learning techniques to enable reliable
+localization even with only a few labeled samples.
+H. Supplementary: Further Discussion on Differences from
+Existing Hybrid Methods
+Several recent works [11]–[13], [26] have explored hybrid
+frameworks that combine neural networks with classical
+subspace-based pipelines. While these methods demonstrate
+promising performance, they still exhibit several limitations
+that restrict their applicability in robotic audition scenarios.
+(1) Array configuration dependency.Some existing
+approaches are restricted to specific array geometries. For
+instance, works such as [11], [12] employ Root-MUSIC
+[?] within their pipeline, which requires a uniform linear
+array (ULA). Such a constraint limits their applicability to
+other microphone configurations commonly used in robotic
+platforms. In contrast, our framework is built upon the
+classical MUSIC formulation, which can be applied to more
+general array geometries, making it more suitable for diverse
+robotic sensing setups.
+(2) Lack of broadband frequency modeling.Most ex-
+isting hybrid methods [11]–[13], [26] are designed primarily
+for narrowband signals, which are common in radar sensing.
+However, acoustic signals in robotic applications are inher-
+ently broadband. Simply applying narrowband formulations
+to broadband signals may lead to suboptimal performance
+because different frequency bands carry varying levels of
+spatial information. If unreliable frequency components are
+not properly handled, the resulting pseudo-spectrum may be
+distorted by noise. To address this issue, we introduce a
+Frequency Attention Fusion (FAF) module that adaptively
+reweights frequency bins and emphasizes informative spec-
+tral components when constructing the broadband pseudo-
+spectrum.
+(3) Limited validation in real-world environments.
+Many existing hybrid approaches evaluate their performance
+primarily in simulated environments. While simulation pro-
+vides controlled conditions for algorithm development, real-
+world acoustic environments are often significantly more
+complex due to reverberation, sensor noise, and environ-
+mental interference. Without extensive validation on real-
+world recordings, the practical effectiveness of these methods
+remains unclear. In contrast, our method is evaluated on
+three different robotic audio datasets, providing a more
+comprehensive assessment of its robustness and practical
+applicability.
+(4) Loss of interpretability and physical structure.
+Although several hybrid methods combine neural networks
+with classical algorithms such as MUSIC or Root-MUSIC,
+these approaches [13], [26] introduce additional neural net-
+works after the classical pipeline to directly regress the DOA.
+Such additional regression modules effectively transform the
+overall system back into a black-box model and weaken the
+physical interpretability provided by the subspace formula-
+tion. This design may also reduce the generalization ability
+inherited from classical signal processing models. In contrast,
+our framework preserves the classical pseudo-spectrum gen-
+eration process and introduces only a lightweight frequency
+attention module to fuse information across frequency bins.
+This design maintains the physical structure of the MUSIC
+algorithm while improving robustness.
+(5) Differences in pipeline design.Taking DA-MUSIC
+[13] as an example, its source number estimation mod-
+ule is placed after the eigenvalue decomposition (EVD)
+stage. However, at this stage some information from the
+raw input may already be lost, as the estimation relies on
+the intermediate covariance representation. This may reduce
+the accuracy of source number estimation. In contrast, our
+method predicts the source number directly from the input
+spectral representation, enabling the model to utilize richer
+spatial information for more reliable estimation.
+Furthermore, DA-MUSIC directly regresses the DOA an-
+gle. This design introduces two potential challenges. First,
+defining an appropriate regression loss becomes more com-
+plicated when the number of sources is unknown. Second,
+
+===== PDF page 13 =====
+
+training stability may be affected because DOA estimation
+typically involves peak extraction from the pseudo-spectrum,
+which introduces non-differentiable operations and weak
+gradients. DA-MUSIC addresses this issue by introducing
+an additional neural regression module. While effective, this
+approach further reduces the interpretability of the overall
+system. In contrast, our method directly outputs the MUSIC
+pseudo-spectrum and estimates DOA through peak selection.
+This design preserves the physical meaning of the classical
+algorithm while maintaining a simple and effective learning
+pipeline. Moreover, representing localization results as a
+spatial probability distribution rather than a single precise
+angle is more consistent with human intuition, as it provides
+an interpretable confidence over possible directions.

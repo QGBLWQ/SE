@@ -1,0 +1,11 @@
+# Local scratch work and application state
+/tmp/
+/.workbuddy-ai/
+/tmp-2411.txt
+
+# Editor and Python-generated files
+.obsidian/workspace.json
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/

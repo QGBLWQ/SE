@@ -1,0 +1,55 @@
+topic: "Strict-causal, ultra-low-latency (~2 ms) low-SNR speech enhancement with speech preservation"
+scope:
+  period: "2020-01-01 to 2026-09-16; earlier classic baselines for context only"
+  target: "real-time communication, embedded and edge devices"
+  primary_constraint: "no future observed samples; approximately 2 ms algorithmic target"
+  non_equivalence: "real-time RTF, streaming, causal and end-to-end 2 ms are separate claims"
+items:
+  - id: latency_contract
+    name: "Latency and strict-causality audit"
+    priority: P0
+    why: "Window, hop, look-ahead, padding and hardware buffers determine eligibility."
+  - id: time_domain
+    name: "Time-domain and learned-filterbank causal methods"
+    priority: P0
+    seeds: ["causal Conv-TasNet", "2-ms simple RNN", "SlowFast-SSM"]
+  - id: frequency_domain
+    name: "Causal/low-delay STFT and complex spectral methods"
+    priority: P0
+    seeds: ["dual-window STFT", "FSB-LSTM", "DCCRN"]
+  - id: hybrid
+    name: "Hybrid time-frequency and neural filterbank methods"
+    priority: P1
+    seeds: ["DTLN", "DeepFilterNet", "PercepNet"]
+  - id: temporal_backbones
+    name: "CNN/TCN, RNN, streaming Transformer, SSM/Mamba"
+    priority: P0
+  - id: speech_preservation
+    name: "Low-SNR speech preservation and over-suppression control"
+    priority: P0
+    seeds: ["SPP", "uncertainty", "gain constraints", "continuity loss", "perceptual loss"]
+  - id: deployment
+    name: "Edge deployment and deadline robustness"
+    priority: P0
+    seeds: ["MAC/s", "SRAM", "quantization", "p99", "underrun"]
+  - id: spatial
+    name: "Multichannel/binaural and spatial cue preservation"
+    priority: P2
+    seeds: ["GCFSnet", "neural beamforming", "binaural link"]
+  - id: evaluation
+    name: "Low-SNR, real-device and preservation evaluation"
+    priority: P0
+execution:
+  batch_size: 3
+  items_per_agent: 3
+  output_dir: "./results"
+  eligibility_gate:
+    strict_causal: true
+    algorithmic_latency_ms_max: 2
+    must_separate_algorithmic_compute_end_to_end: true
+    must_report_low_snr_stratification: true
+recommended_mvp:
+  title: "SPP-modulated conservative suppression for 2-ms causal enhancement"
+  baseline: "single-channel 2-ms learned-filterbank + causal GRU or small SSM"
+  minimum_change: "shared SPP head plus band-wise gain floor and continuity loss"
+  expected_contribution: "improve low-SNR preservation at comparable latency and MAC/s"

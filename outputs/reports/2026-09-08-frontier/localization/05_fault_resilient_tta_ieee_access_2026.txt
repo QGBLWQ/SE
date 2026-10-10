@@ -1,0 +1,2413 @@
+
+
+===== PDF page 1 =====
+
+Received 26 March 2026, accepted 9 April 2026, date of publication 16 April 2026, date of current version 22 April 2026.
+Digital Object Identifier 10.1 109/ACCESS.2026.3684240
+Confidence-Aware Test-Time Adaptation for
+Fault-Resilient Sound Source Localization
+Guided by Lightweight Diagnosis
+INKYU AN
+Department of Software, Kookmin University, Seoul 02707, South Korea
+e-mail: inkyu.an@kookmin.ac.kr
+This work was supported by the Institute of Information and Communications Technology Planning and Evaluation (IITP)
+grant funded by Korean Government [Ministry of Science and ICT (MSIT)], AI Star Fellowship (Kookmin University)
+under Grant RS-2025-02219317; and in part by the National Research Foundation of Korea (NRF) grant funded by
+Korean Government (MSIT) under Grant RS-2026-25495435.
+ABSTRACT Deep learning-based sound source localization systems typically rely on specific microphone
+array configurations, making them highly vulnerable to hardware failures. Unexpected sensor faults cause
+severe structural signal degradation, leading to substantial deterioration in localization accuracy. To address
+this challenge, we propose a robust Fault-Resilient Sound Source Localization framework that autonomously
+diagnoses sensor faults and adapts the model at test time without requiring ground-truth labels. The
+proposed system integrates two core modules: 1) a Lightweight Fault Diagnosis module, which employs
+a computationally efficient Frequency-Time Projection Network with a Fault Queue mechanism, and 2) a
+Diagnosis-Guided Confidence-Aware Test-Time Adaptation strategy, which leverages the highly reliable
+diagnosis results to apply interventions and utilizes a confidence thresholding mechanism to generate refined
+hard pseudo-labels for stable self-training. As a result, the proposed system reduces the mean absolute error,
+averaged across diverse models and fault conditions, from 21.99 ◦ to 9.91 ◦, achieving a significant error
+reduction of 54.92%, thereby ensuring reliable robotic perception even in the presence of sudden hardware
+malfunctions. The proposed framework is further validated in a real-environment experiment using a physical
+microphone array with an authentic hardware fault, confirming its generalizability beyond synthetic fault
+conditions.
+INDEX TERMS Acoustic signal processing, autonomous robots, deep learning, fault diagnosis, machine
+listening, microphone arrays.
+I. INTRODUCTION
+Sound source localization (SSL) is a fundamental capability
+for robotic perception and human-computer interaction,
+enabling embedded systems such as service robots and smart
+speakers to detect acoustic events and interact with users
+implicitly [1], [2], [3], [4], [5], [6]. Encompassing diverse
+tasks ranging from direction-of-arrival (DOA) estimation to
+environment-aware localization and acoustic mapping, these
+systems typically rely on multi-channel audio captured by
+microphone arrays, where spatial information is encoded in
+the time and phase differences between microphones.
+The associate editor coordinating the review of this manuscript and
+approving it for publication was Li He
+.
+Historically, it is well established that the accuracy of
+SSL is closely tied to the number of microphones [7], [8];
+increasing the number of sensors generally improves spatial
+resolution but imposes a significant burden on computational
+cost and memory usage. For instance, high-end commercial
+arrays like the 64-channel Eigenmike can achieve precise
+localization but require processing power often unavailable
+on resource-constrained embedded platforms [9]. To address
+this trade-off, recent advancements in deep learning have
+enabled robust SSL performance using compact array
+configurations [1], [2], [3]. Thanks to these data-driven
+approaches, it is now possible to achieve high-precision 2D
+DOA estimation (e.g., mean absolute error (MAE) of DOA
+of 2.65◦ [3]) using as few as four microphones.
+VOLUME 14, 2026
+
+ 2026 The Authors. This work is licensed under a Creative Commons Attribution 4.0 License.
+For more information, see https://creativecommons.org/licenses/by/4.0/ 60569
+
+===== PDF page 2 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+However, this reliance on minimal sensor configurations
+introduces a critical vulnerability: the system becomes highly
+sensitive to hardware failures. In real-world deployment
+scenarios, microphones are prone to various physical and
+electrical faults caused by hardware damage (e.g., broken
+wires), connection instability, or aging of vibrating mem-
+branes [10]. As detailed in Sec. III-B, these hardware issues
+manifest as distinct fault patterns, including No Sound,
+Attenuation, Impulsive Noise, Continuous Noise, and Signal
+Replication. The impact of such failures is substantial
+for deep learning-based models trained on healthy data.
+As demonstrated in our empirical analysis in Sec. VI-B2,
+a single microphone failure in a 4-channel array causes the
+MAE of DOA estimations, averaged across diverse models
+and fault conditions, to surge by approximately 238% (from
+6.50◦ to 21.99◦), rendering the localization system unreliable.
+Even in the event of sudden hardware failure, autonomous
+systems must maintain an acceptable level of stability and
+functionality until repair or replacement can be performed.
+If a robot malfunctions due to an unexpected sensor fault,
+it could lead to erroneous decision-making, potentially
+resulting in safety accidents involving humans or damage
+to the environment. Consequently, extensive research has
+been conducted on fault detection and diagnosis (FDD) to
+ensure the reliability of various sensors, such as LiDAR [11],
+cameras [12], and IMUs [13], utilizing deep learning to
+handle complex signal patterns. However, research specif-
+ically addressing microphone array faults remains limited.
+While methods for diagnosing microphone faults exist, they
+often rely on traditional signal processing features, such as
+voice activity detection (V AD) inter-correlation [10]. These
+conventional approaches struggle to detect phase-related
+faults, such as channel copying (signal replication), because
+the replicated signals retain valid speech characteristics and
+energy levels.
+Even if the microphone fault is accurately detected and
+diagnosed, a critical challenge remains in model recovery.
+Fine-tuning deep learning-based SSL models on corrupted
+multi-channel audio involves a significant domain shift,
+which typically requires access to ground-truth labels from
+the target domain. To overcome this limitation, extensive
+research has been conducted on test-time adaptation (TTA),
+which enables models to adapt to distribution shifts using
+only unlabeled test data [14], [15], [16], [17], [18], [19],
+[20], [21].
+However, directly leveraging these existing TTA frame-
+works for SSL presents a non-trivial challenge. Most TTA
+methods are tailored for classification tasks, relying on
+entropy minimization or confidence maximization over
+discrete label spaces, which do not straightforwardly translate
+to the continuous regression nature of DOA estimation.
+Although recent studies have extended TTA to structured
+regression problems in computer vision—such as depth
+completion [22], optical flow [23], and pose estimation [24],
+[25]—these approaches predominantly exploit visual geo-
+metric constraints. Consequently, since these methods are
+inherently designed for the visual domain, they are not
+directly applicable to audio-based SSL tasks that require
+handling unique spectral and spatial degradations, particu-
+larly when hardware failures disrupt the inter-channel phase
+relationships.
+To this end, we propose a robust Fault-Resilient SSL
+framework that can autonomously detect the specific
+fault type and adapt the pre-trained model to the target
+domain without external intervention. Previous research on
+microphone fault diagnosis has primarily focused on specific
+features, while existing TTA approaches are ill-suited for
+SSL under hardware faults as they do not account for
+the structural signal degradation. This paper presents a
+tightly coupled fault-resilient SSL framework in which fault
+semantics explicitly guide the adaptation process.
+The main contributions of this paper are summarized as
+follows:
+• Lightweight and Reliable Fault Diagnosis
+(Sec. IV-A): We propose a computationally efficient
+Frequency-Time Projection Network integrated with a
+robust Fault Queue mechanism to ensure precise fault
+identification.
+• Diagnosis-Guided Confidence-Aware TTA
+(Sec. IV-B): We propose a confidence-aware TTA
+framework based on hard pseudo-labeling, which
+enables stable self-training for SSL under microphone
+faults. Furthermore, we introduce a diagnosis-guided
+adaptation strategy that leverages fault semantics to
+enhance robustness against severe structural
+degradations.
+We rigorously validate both the fault diagnosis and adap-
+tation modules with synthetically injected faults (Sec. VI).
+First, we verify that the proposed Lightweight Fault Diag-
+nosis model can be stably trained to yield precise fault
+classification in Sec. VI-A. Subsequently, through extensive
+experiments in Sec. VI-B, we demonstrate the superiority
+of our TTA method over the baselines; with all proposed
+components enabled, the system achieves a significant error
+reduction of 54.92% (MAE improving from 21.99◦ to 9.91◦),
+averaged across diverse models and fault conditions.
+We further confirm the practical stability of our system
+for real-time embedded deployment through sensitivity anal-
+yses covering threshold initialization, dynamic thresholding,
+silence threshold, batch size, and threshold sensitivity (from
+Sec. VI-B3 to Sec. VI-B7), and analyze the system’s
+robustness under misdiagnosis scenarios in Sec. VI-B8.
+Beyond single-channel failure conditions, we extend our
+evaluation to simultaneous dual microphone failure scenarios
+in Sec. VI-C, identifying the boundary between recoverable
+and irrecoverable failure states imposed by the geometric
+constraint requiring at least three operational microphones
+for reliable 2D DOA estimation. Finally, we validate the
+generalizability of the framework beyond the SSLR dataset
+through a real-environment experiment using a physical
+microphone array with an authentic hardware fault in
+Sec. VI-D.
+60570 VOLUME 14, 2026
+
+===== PDF page 3 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+II. RELATED WORKS
+A. SOUND SOURCE LOCALIZATION
+Research in SSL can be broadly categorized into DOA
+estimation, environment-aware localization, and mobile
+robot-based acoustic mapping.
+DOA estimation has been extensively studied as a core
+problem in SSL, and recent advances in deep learning
+have significantly accelerated progress in this direction.
+By learning the mapping between acoustic features and
+source directions, deep learning-based approaches have
+demonstrated improved robustness to noise and reverbera-
+tion, while enabling accurate localization even with a small
+number of microphones, such as compact and minimally
+redundant microphone arrays. He et al. [1] employed
+deep neural networks for multiple speaker detection and
+localization, demonstrating robust performance in noisy
+conditions. Wang et al. [2] introduced a mechanism to apply
+attention to speech-dominant frequency bins in generalized
+cross correlation-phase transform (GCC-PHA T) features,
+enhancing localization accuracy. Furthermore, An et al. [3]
+proposed a microphone pair training strategy to achieve
+robust SSL across diverse array configurations, reducing the
+dependency on specific array geometries during training.
+Beyond DOA estimation, researchers have leveraged envi-
+ronmental cues and auxiliary sensor data to handle complex
+acoustic scenes. An et al. [4], [5] incorporated diffraction and
+reflection models into the localization framework, utilizing
+back-propagation signals and environmental geometry to
+localize sources even in non-line-of-sight conditions. In a
+data-driven context, Liu et al. [6] proposed a self-supervised
+incremental learning framework to adaptively learn the
+acoustic-to-location mapping in complex indoor environ-
+ments, reducing the reliance on extensive annotated data.
+For mobile robots, integrating spatio-temporal information
+over multiple frames is crucial for consistent tracking.
+Su et al. [26] proposed a real-time 3D sound source mapping
+framework using linear arrays, accumulating DOA estimates
+while the robot moves. More recently, Fu et al. [27]
+introduced I-ASM, an iterative acoustic scene mapping
+approach that enhances auditory perception in complex
+indoor environments by continuously refining the acoustic
+map.
+Despite these advancements, a fundamental assumption
+across these methods is the structural integrity of the micro-
+phone array. Consequently, any deviation from the expected
+configuration, such as hardware failures (e.g., dead channels,
+gain mismatch), disrupts the spatial correlation structure,
+leading to severe degradation in localization accuracy. This
+vulnerability has received limited attention in existing SSL
+literature, yet poses a significant hurdle for long-term robot
+operation. We experimentally quantify this performance drop
+caused by sensor faults in Sec. VI-B.
+B. SENSOR FAUL T DETECTION AND DIAGNOSIS
+Hardware devices operating in real-world environments
+are prone to unexpected failures. Consequently, substantial
+research has been conducted on fault detection and diagnosis
+(FDD) to ensure system reliability and safety [28], [29].
+With the recent advancements in artificial intelligence, deep
+learning-based FDD has been actively investigated to handle
+complex signal patterns.
+For instance, Zhao et al. [30] proposed a method using
+strong residual convolutional neural networks (CNNs) with
+adaptive thresholds to reliably diagnose faults in rotating
+machinery (e.g., motors) from vibration signals, even under
+noisy conditions. Similarly, Mezair et al. [31] introduced
+a hybrid model combining CNN, long short-term memory
+(LSTM), and graph neural network (GNN) to detect anoma-
+lies in industrial processes using heterogeneous time-series
+sensor data. Ali et al. [32] utilized short-time Fourier
+transform (STFT) and ensemble deep learning for motor
+fault diagnosis. In the acoustic domain, Ha et al. [33]
+employed a microphone array and a thermal imaging camera
+to detect faults in transmission lines. While these studies
+demonstrate the efficacy of deep learning in industrial
+diagnosis, their primary objective is to identify anomalies
+in the surrounding environment (e.g., motor malfunction,
+transmission line defects). Consequently, they typically
+operate under the assumption that the sensors themselves
+are functioning correctly, leaving the issue of internal sensor
+failures unaddressed.
+Distinct from fault diagnosis targeting external environ-
+mental phenomena, a separate line of research has focused on
+ensuring the integrity of the sensing hardware itself. In visual
+perception, research has been conducted to detect and handle
+lens soiling in LiDAR [11] and camera sensors [12]. For
+satellite attitude determination, Chen et al. [13] proposed a
+recovery method fusing Kalman filters and neural networks
+to handle IMU sensor faults. In multi-modal sensor fusion,
+Zhang et al. [34] demonstrated robust performance mainte-
+nance even when a specific sensor (e.g., camera) fails or is
+missing. Cicero et al. [35] addressed anomaly detection in
+label-scarce IoT sensor networks using a U-Net architecture
+and sliding window-based online learning. Furthermore,
+in the context of antenna arrays, which share similar
+array signal processing principles with microphone arrays,
+Zheng et al. [36] utilized a ResNet architecture to robustly
+detect faults in noisy environments.
+Despite the critical impact of array integrity on SSL
+performance, the majority of existing FDD research using
+microphone arrays remains focused on localizing the source
+of mechanical faults rather than diagnosing the microphone
+array itself [33], [37], [38], [39]. While methods for
+diagnosing microphone faults exist, they often rely on
+traditional signal processing features, such as V AD inter-
+correlation, which are insufficient for detecting phase-related
+faults like channel copying, where replicated signals preserve
+valid spectral and energy characteristics [10]. Recently,
+Zhou et al. [40] addressed DOA estimation under array
+imperfections via supervised transfer learning. Although this
+approach attempts to adapt to the target domain, it does
+not address automatic fault detection and requires labeled
+VOLUME 14, 2026 60571
+
+===== PDF page 4 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+data from the target domain for fine-tuning, which limits its
+applicability in autonomous deployment settings. Therefore,
+a unified framework that autonomously detects sensor faults
+and enables unsupervised model adaptation is required.
+C. TEST-TIME ADAPTATION
+Since ground-truth labels are unavailable for corrupted
+target-domain data during deployment, adaptation must be
+performed in an unsupervised manner. Test-time adaptation
+(TTA) has emerged as a promising paradigm to address
+this by adapting models to shifted target domains without
+access to the target labels. Traditionally, the majority of TTA
+methodologies have been developed primarily for classifica-
+tion tasks. Early approaches focused on entropy minimization
+to reduce uncertainty in discrete prediction distributions,
+as demonstrated by TENT [14] and MEMO [15]. Others
+addressed catastrophic forgetting by selecting reliable low-
+entropy samples [16] or mitigating sharp loss minima [17].
+In parallel, pseudo-labeling strategies have been actively
+explored for classification, utilizing techniques like nearest
+neighbor information [18], teacher-student architectures
+(CoTTA) [19], and confidence-based filtering [21] to guide
+self-training.
+Recognizing the need for adaptation in continuous output
+spaces, recent efforts have extended TTA to regression
+problems, particularly within the computer vision domain.
+Unlike classification, these tasks require estimating contin-
+uous values where standard entropy minimization is not
+directly applicable. Representative examples include depth
+completion [22], optical flow estimation [23], and pose
+estimation [24], [25]. These methods typically leverage
+structural constraints or auxiliary guidance specific to visual
+modality (e.g., geometric consistency) to drive the adaptation
+process.
+However, directly applying these existing TTA frame-
+works to SSL remains non-trivial due to inherent task
+and domain discrepancies. First, SSL is fundamentally a
+regression problem that estimates continuous source loca-
+tions (e.g., DOA). This precludes the direct applicability of
+prevalent classification-based TTA methods, as their core
+mechanisms—such as minimizing the entropy of discrete
+class probabilities—do not straightforwardly translate to
+continuous regression outputs. Second, adaptation strategies
+tailored for vision-based regression do not readily generalize
+to audio-based SSL, especially under microphone array
+failures. The spatial cues in audio signals (e.g., phase
+differences) are fundamentally different from visual features.
+Consequently, the direct transfer of methods designed for the
+visual modality to the SSL problem is constrained by these
+inherent domain discrepancies.
+It is also important to distinguish TTA from fault-
+augmented retraining, an alternative strategy that addresses
+domain shifts by augmenting the training data with
+fault-injected samples and retraining the model offline.
+While fault-augmented retraining can improve robustness to
+anticipated fault conditions, it requires access to ground-truth
+FIGURE 1. Overview of the deep learning-based sound source
+localization (SSL) framework. The model processes windowed M-channel
+audio signals at the current frame t to estimate a sequence of
+direction-of-arrival (DOA) likelihoods for Q consecutive intra-frame steps
+(e.g., Q = 10). Gaussian-like soft label sequences are employed to
+represent the ground-truth trajectory over time. The network utilizes a
+sigmoid activation function and is optimized by minimizing the
+sequence-wise mean squared error (MSE) loss between the predicted
+likelihood sequence and the Gaussian target sequence.
+labels from the target domain and must be performed
+prior to deployment, making it fundamentally unsuitable for
+autonomous systems that must respond to sudden hardware
+failures in real time without human intervention. In contrast,
+TTA adapts the pre-trained model online at test time using
+only unlabeled streaming data, without requiring any prior
+knowledge of the fault type or access to labeled data from
+the target domain. This distinction makes TTA a uniquely
+appropriate paradigm for the fault-resilient SSL problem
+addressed in this work.
+III. PROBLEM FORMULATION
+A. SOUND SOURCE LOCALIZATION TASK
+We consider a robot equipped with a microphone array
+consisting of M microphones. Let s(n) denote a sound source
+signal in the time domain. Under the far-field assumption,
+the signal received by the m-th microphone, xm(n), can be
+modeled as:
+xm(n) = s(n − τm(θ )) + vm(n), (1)
+where τm(θ) is the time delay of arrival relative to the
+source direction θ and the m-th microphone position, and
+vm(n) denotes additive background noise. While the general
+DOA θ encompasses both azimuth and elevation in 3D
+space, we simplify the problem to 2D planar localization by
+assuming the source and the robot lie on the same horizontal
+plane. Thus, in this work, θ represents the azimuth angle
+solely.
+Following recent data-driven approaches [1], [2], [3],
+we formulate the DOA estimation task as a supervised
+60572 VOLUME 14, 2026
+
+===== PDF page 5 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+learning problem for 2D planar localization. Crucially,
+to ensure stable estimation performance without front-back
+ambiguity, we assume that the microphone array consists
+of at least three microphones (M ≥ 3). The continuous
+multi-channel signals are segmented into overlapping frames
+using a sliding window. Let t denote the time frame
+index. The goal is to learn a non-linear mapping function
+fW (·) parameterized by W, which estimates a fine-grained
+sequence of DOAs within the observed signal frame.
+Specifically, we formulate the problem by dividing a single
+input frame t into Q consecutive intra-frame steps, allowing
+the model to capture the detailed trajectory within the frame
+duration.
+Specifically, for the t-th time frame, the system takes the
+windowed multi-channel audio signals xt ∈ RM ×N as input,
+where N denotes the number of samples in a frame. From
+this raw input, acoustic features Xt (e.g., STFT, inter-channel
+phase differences (IPD), or GCC-PHA T [41]) are computed
+and fed into the network. Note that the dimensionality of
+Xt depends on the feature extraction method; for instance,
+STFT-based features typically take the form Xt ∈ RC×L×F ,
+where L and F denote the number of time and frequency
+bins, respectively. Here, C represents the total number of
+feature channels, which varies depending on the specific
+model architecture and the combination of input features
+employed.
+As illustrated in Fig. 1, the model outputs a sequence of
+spatial likelihood vectors pt,q ∈ RK for each intra-frame
+step q = 1, . . . ,Q, defined over K discretized angular
+bins (e.g., K = 360 for 1 ◦ resolution). A pivotal
+design choice in our framework is the strategic adoption
+of this probabilistic representation over direct coordinate
+regression [42]. We identify that standard regression models,
+which output a single coordinate value, inherently lack the
+explicit uncertainty measures required for unsupervised adap-
+tation. By leveraging this classification-like spatial likelihood
+estimation, we bridge this gap, utilizing the probabilistic
+output to compute confidence metrics (e.g., entropy) and
+generate pseudo-labels. This architectural decision serves as
+a fundamental enabler for applying confidence-driven TTA
+strategies to the SSL domain, as detailed in Sec. IV -B.
+Consistent with prior studies [1], [2], [3], during the
+supervised pre-training phase, we employ a Gaussian-like
+soft labeling scheme. Accordingly, we define a sequence
+of ground-truth target vectors yt,q corresponding to the q-
+th sub-step within the current frame t. Note that distinct
+hard pseudo-labels are employed later for the TTA process,
+as detailed in Sec. IV -B. To accommodate scenarios with
+multiple sound sources, let 2t,q = {θ gt
+t,q,1, . . . , θgt
+t,q,J } denote
+the set of ground-truth DOAs at theq-th step of framet, where
+J represents the number of active sources. The target value for
+the k-th angular bin φk is defined by aggregating the Gaussian
+kernels for all active sources:
+yt,q,k = max
+θ ∈2t,q
+(
+exp
+(
+− d(φk , θ)2
+2σ 2
+))
+, (2)
+FIGURE 2. Visualization of microphone signals under normal and faulty
+conditions. The left column displays time-domain waveforms, and the
+right column shows the corresponding spectrograms. The color scale
+represents log-magnitude, ranging from dark blue (≈ -100 dB) to dark red
+(≈ 20 dB). While faults like No Sound, Impulsive Noise, and Continuous
+Noise exhibit distinct visual or spectral patterns, note that the Signal
+Replication fault (bottom) maintains a valid speech-like spectro-temporal
+structure similar to the Normal State. This visual similarity highlights the
+challenge of detecting replicated signals using conventional
+magnitude-based metrics.
+where d(·) computes the angular distance, σ controls the
+spread of the label, and the max operation effectively overlays
+the spatial distributions of multiple sources.
+The final layer of the network utilizes a Sigmoid activation
+function to ensure the output values lie within [0, 1]. To align
+with the training objectives of the baseline methods [1], [2],
+[3], the model is trained by minimizing the Mean Squared
+Error (MSE) loss between the predicted likelihood pt,q and
+the Gaussian target yt,q for each angle bin:
+LSSL = 1
+QK
+Q∑
+q=1
+K∑
+k=1
+(yt,q,k − pt,q,k )2. (3)
+During the inference phase, the final DOA estimate is
+determined by identifying the angular bin corresponding
+to the global peak (or local peaks in multi-source scenar-
+ios) of the predicted likelihood vector pt,q. This formulation
+allows the model to robustly estimate the DOA for each
+time frame t even in the presence of noise and reverberation,
+VOLUME 14, 2026 60573
+
+===== PDF page 6 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+provided that the microphone array configuration remains
+consistent with the training phase.
+B. MICROPHONE FAUL T TYPES
+In practical deployment scenarios, microphone arrays are
+susceptible to various hardware failures caused by physical
+damage, circuit degradation, or environmental factors [10].
+To systematically analyze the impact of these failures,
+we model the faulty signal ˜xm(n) received by the m-th
+microphone as a corrupted version of the clean signal xm(n):
+˜xm(n) = αm(n) · xm(n) + βm(n), (4)
+where αm(n) represents a (possibly time-varying) gain scaling
+factor (where αm(n) = 1 denotes a healthy state) and βm(n)
+represents additive fault noise.
+Based on a prior study [10] and common hardware
+failure modes, we categorize five representative fault types
+commonly observed in practice, alongside the normal state
+(No Fault), as visualized in Fig. 2.
+• No Sound (Dead Channel): This fault occurs due to
+disconnected cables, broken wires, or complete sensor
+failure. Mathematically, this corresponds to a complete
+loss of signal information, modeled as αm(n) ≈
+0 and βm(n) ≈ 0. For a neural network, this results
+in a ‘‘dead’’ input channel containing only zeros or
+negligible thermal noise.
+• Attenuation (Gain Mismatch): Microphone sensitivity
+can degrade over time due to dust accumulation on
+the acoustic port or aging of the vibrating membrane
+(diaphragm). This results in a consistent reduction in
+signal amplitude, modeled as 0 < α m(n) < 1 with
+βm(n) = 0.
+• Impulsive Noise (Pops & Clicks): Caused by loose
+connections, electrical discharges, or mechanical
+impacts, this fault introduces sudden, high-energy spikes
+into the signal. Here, βm(n) appears as intermittent
+impulsive noise with high amplitude, temporarily
+overwhelming the source signal xm(n).
+• Continuous Noise (White Noise): Degradation of inter-
+nal amplifier circuits or electromagnetic interference
+can inject persistent wide-band noise. In this case,
+βm(n) is modeled as Gaussian white noise N (0, σ 2
+fault )
+with a variance significantly higher than the ambient
+noise floor, severely degrading the signal-to-noise ratio
+(SNR).
+• Signal Replication (Cross-Channel Copy): This fault
+occurs when the signal from one microphone (e.g.,
+m-th mic) is erroneously duplicated to another channel
+(e.g., j-th mic) due to data acquisition software errors
+or short circuits in the signal path, i.e., ˜xj(n) =
+xm(n), which cannot be captured by simple gain or
+additive noise models. Crucially, this fault type is
+difficult to detect using traditional methods. Previous
+works relying on magnitude or V AD features [10] often
+fail to identify this fault because the replicated signal
+possesses valid speech characteristics and energy levels
+(Sec. VI-A1). However, for SSL, this fault is particularly
+detrimental, as it destroys the unique phase and time
+difference of arrival (TDOA) information required for
+DOA estimation.
+The occurrence of any of these faults fundamentally
+alters the input feature distribution Xt . Consequently, the
+pre-trained mapping function fW (·), which assumes a healthy
+array configuration, fails to extract correct spatial cues,
+leading to a severe degradation in DOA estimation accuracy.
+We will quantitatively analyze this performance drop in the
+experimental results (Sec. VI-B2a).
+While our primary analysis focuses on single-channel
+failure scenarios, we additionally extend our evaluation
+to simultaneous dual microphone failure conditions in
+Sec. VI-C, identifying the practical boundaries of the
+proposed framework. We specifically target a 4-channel
+microphone array configuration, which is widely adopted
+in robotic auditory perception [1], [2], [26]. This choice is
+motivated by recent deep learning advancements demonstrat-
+ing that, even with this compact setup, models can achieve
+exceptional localization precision, reaching a MAE as low
+as 2.65◦ [3]. However, maintaining at least three operational
+microphones is the fundamental geometric prerequisite to
+satisfy the constraint (M ≥ 3) defined in Sec. III-A, ensuring
+unique 2D localization without front-back ambiguity. Sce-
+narios involving two or more failed microphones generally
+result in insufficient spatial information for reliable full 360 ◦
+DOA estimation. Consequently, we evaluate the proposed
+method under the single-fault assumption, which represents
+the minimal viable configuration required to sustain the
+robust performance of the target platform.
+IV. FAULT-RESILIENT SOUND SOURCE LOCALIZATION
+FRAMEWORK
+In this section, we propose a Fault-Resilient SSL framework
+that minimizes localization accuracy degradation under
+abrupt hardware failures. As illustrated in Fig. 3, the
+system operates as a sequential pipeline comprising two core
+modules: 1) a Microphone Fault Diagnosis module driven
+by a lightweight time-frequency network, and 2) a TTA
+module based on confidence-aware self-training. Crucially,
+the proposed framework is not a simple combination of fault
+diagnosis and TTA, but a unified system in which diagnosed
+fault semantics directly determine the form of intervention
+and adaptation.
+A. LIGHTWEIGHT AND RELIABLE FAUL T DIAGNOSIS
+Since the proposed framework is intended for deployment
+on resource-constrained edge platforms, the fault diagnosis
+module must be computationally efficient while maintaining
+high accuracy. Complex architectures such as Transformers
+or deep CNNs often entail high computational costs, which
+are unnecessary for the relatively distinct patterns of sensor
+faults. Therefore, we propose a Lightweight Frequency-
+Time Projection network (Fig. 4) that minimizes learnable
+60574 VOLUME 14, 2026
+
+===== PDF page 7 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+FIGURE 3. Overview of the proposed Fault-Resilient Sound Source Localization (SSL) framework. The system processes the M-channel audio stream using
+two cascaded modules: Microphone Fault Diagnosis and test-time adaptation (TTA). First, a Lightweight Time-Frequency Projection Network identifies
+fault types, using a Fault Queue to filter transient prediction errors. The TTA process is triggered only when a consistent fault persists for K consecutive
+frames. Crucially, the adaptation is diagnosis-guided: the identified fault type and channel index are utilized to apply targeted interventions (e.g., explicit
+zero-masking for signal replication) before feeding features to the SSL model. Subsequently, the model estimates a sequence of direction-of-arrival (DOA)
+likelihoods to capture the source trajectory. These predictions are then used to generate confidence-aware hard pseudo-labels for self-training.Unlike the
+typical fixed-weight workflow (bottom), our framework dynamically updates the model parameters to recover performance in faulty scenarios.
+FIGURE 4. Architecture of the proposed Lightweight Frequency-Time
+Projection Network for microphone fault diagnosis. The network
+integrates spectral cues (magnitude of short-time Fourier transform, STFT)
+and spatial cues (inter-channel phase difference, IPD) to robustly identify
+diverse failure modes. To ensure computational efficiency, the model
+sequentially projects the frequency dimension (F → Hf ) via a linear layer
+and compresses the time dimension (L → Hl ) via adaptive pooling. The
+aggregated features are finally processed by a multi-layer perceptron
+(MLP) classifier to determine the specific fault type ˆyfault for each
+microphone.
+parameters by decoupling frequency and time domain
+processing.
+The network takes a concatenated feature tensor Xt ∈
+RC×L×F as input at the t-th time frame. For notational
+simplicity, we omit the time frame index t in the subsequent
+descriptions. Here, C represents the total number of feature
+channels, and L and F denote the number of time bins and
+frequency bins, respectively. Specifically, the channel dimen-
+sion C is constructed by stacking the M channels of STFT
+magnitude spectra and M (M − 1)/2 channels of IPD features
+computed from all possible microphone pairs. Notably,
+the inclusion of IPD features is essential for identifying
+phase-related anomalies such as Signal Replication. Unlike
+energy-based features (e.g., V AD [10] or magnitude) which
+often fail to distinguish replicated signals from normal speech
+due to preserved energy levels, IPD explicitly captures the
+inter-channel spatial correlations, enabling the detection of
+unnatural phase consistency.
+To effectively reduce the model size, we process
+the frequency and time dimensions sequentially. First,
+the Frequency Projection layer maps the high-dimensional
+frequency features to a latent space of size Hf . Let fc,l ∈ RF
+be the frequency feature vector for channel c at time step l.
+The projection is defined as:
+zc,l = σ (Wf fc,l + bf ), (5)
+where Wf ∈ RHf ×F and bf are learnable weights and biases,
+and σ (·) is the ReLU activation function. Crucially, Wf is
+shared across all time steps l and channels c, allowing the
+model to extract consistent spectral features independent of
+temporal variations while significantly reducing parameter
+count.
+Subsequently, to efficiently handle the temporal dimension
+L, we employ a Time Projection layer utilizing adaptive
+pooling. Instead of processing the entire temporal sequence
+with high-dimensional fully connected layers, this layer
+compresses the temporal dimension L into a compact fixed
+size Hl. This operation is mathematically formulated as
+computing the local average for the ℓ-th output index (0 ≤
+ℓ < Hl):
+hc,ℓ = 1
+eℓ − sℓ
+eℓ−1∑
+j=sℓ
+zc,j, (6)
+VOLUME 14, 2026 60575
+
+===== PDF page 8 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+where the start indexsℓ and end indexeℓ are determined based
+on the input length L:
+sℓ =
+⌊ ℓ · L
+Hl
+⌋
+, eℓ =
+⌊ (ℓ + 1) · L
+Hl
+⌋
+. (7)
+This formulation serves as a parameter-free dimensionality
+reduction technique that aggregates temporal information
+into a consistent representation H ∈ RC×Hl ×Hf . The validity
+of this temporal compression lies in the stationarity of sensor
+faults; typically, hardware failures (as illustrated in Fig. 2)
+exhibit consistent patterns within a short observation window.
+Therefore, aggregating global temporal statistics via pooling
+effectively captures the fault signature while minimizing
+learnable parameters.
+Finally, the aggregated features are flattened and passed
+through a multi-layer perceptron (MLP) classifier to produce
+the fault logits ˆyfault ∈ RM ×Nfault , where Nfault denotes the
+number of predefined fault types (including the normal state).
+Thanks to this decoupled design, our model requires only
+3.29 million parameters. In contrast, a naive MLP approach
+processing the raw flattened input would require approxi-
+mately 265 million parameters, representing a reduction
+of over 98.7% (see Sec. VI-A2 for detailed analysis).
+Despite its simplicity, our experimental results demonstrate
+that this lightweight model achieves a detection accuracy of
+99.97% in random single-fault scenarios, proving that heavy
+architectures are not required for this task.
+The network is trained in a supervised manner by minimiz-
+ing the cross-entropy loss between the predicted probabilities
+and the ground-truth fault labels. To ensure robust gener-
+alization across diverse acoustic conditions, we utilized an
+existing clean speech dataset and synthetically injected the
+microphone fault patterns defined in Section III-B (e.g.,
+No Sound, Attenuation, Impulsive Noise, Continuous Noise,
+and Signal Replication). This data synthesis strategy allows
+the model to learn distinct spectral and spatial signatures
+of hardware failures without requiring expensive real-world
+faulty data collection. Comprehensive details regarding the
+data generation pipeline and training protocols are provided
+in Sec. V -A.
+Although the proposed model achieves near-perfect accu-
+racy (99.97% as described in Sec. VI-A2), minimizing
+sporadic false predictions remains crucial for maintaining
+system efficiency and reliability. For example, afalse positive
+(diagnosing a healthy microphone as faulty) would trigger
+a redundant adaptation process, incurring unnecessary com-
+putational overhead. Therefore, prioritizing the robustness
+of the decision is paramount. To address this, we integrate
+the Fault Queue mechanism introduced in Sec. IV as a
+post-processing step (Fig. 3). The predicted fault label for
+the current frame is pushed into a first-in-first-out queue of
+length K . The system confirms a hardware failure and triggers
+the TTA process only when the queue is fully populated
+with an identical fault type (i.e., the same fault persists
+for K consecutive frames). This temporal consistency check
+ensures that the system reacts only to sustained hardware
+malfunctions, effectively filtering out transient outliers.
+B. DIAGNOSIS-GUIDED CONFIDENCE-AWARE TTA
+Once a sustained microphone fault is confirmed by the
+Microphone Fault Diagnosis module (Sec. IV -A), the system
+triggers the TTA process. The overall workflow of the
+proposed TTA framework is illustrated in Fig. 5. Leveraging
+the probabilistic output representation defined in Sec. III-A,
+our framework adapts the pre-trained model using its own
+predictions. As discussed in Sec. III-A, this architectural
+choice—predicting a spatial likelihood distribution rather
+than a single coordinate—is the fundamental prerequisite
+that allows us to quantify prediction uncertainty and enable
+unsupervised adaptation.
+FIGURE 5. Flowchart of the proposed test-time adaptation (TTA)
+process.(A) Upon fault triggering, diagnosis-guided intervention (e.g.,
+explicit zero-masking) is selectively applied to the input data depending
+on the identified fault type. Subsequently, the initial confidence threshold
+τ0 is set via either stream buffering (N buffer frames) or immediate
+synthetic warm-up.(B) In the adaptation loop, the system generates
+sequences of hard pseudo-labels eyt ,q and uncertainty masks mt ,q by
+filtering the direction-of-arrival (DOA) likelihoods pt ,q. This step uses
+dynamic confidence (τ t ) and silence (τ sil ) thresholds to retain reliable
+predictions while discarding ambiguous or silent predictions.(C) Finally,
+the model parameters Wt and threshold τt are updated on a mini-batch
+basis via sequence-wise masked mean squared error (MSE) loss and
+exponential moving average (EMA), respectively.
+For the adaptation strategy, we adopt a pseudo-labeling
+approach over entropy minimization techniques (e.g.,
+TENT [14]). While entropy minimization effectively
+sharpens prediction distributions, pseudo-labeling provides
+explicit supervision signals, generally yielding superior
+performance in recovering from severe domain shifts,
+as discussed in Sec. VI-B2c. However, the efficacy of this
+approach hinges critically on the quality of the generated
+labels. Predictions derived from a compromised microphone
+array are inherently noisy and unstable (Fig. 6).
+To mitigate this risk and ensure stability, we propose a
+Confidence-Aware Pseudo-Labeling strategy. By strictly
+filtering out low-confidence predictions using a dynamic
+60576 VOLUME 14, 2026
+
+===== PDF page 9 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+threshold, this mechanism ensures that the model is
+updated only with high-quality supervision signals, effec-
+tively preventing the error accumulation that typically arises
+from training on noisy predictions. Furthermore, while
+the proposed confidence-aware mechanism is effective,
+there is room to further enhance adaptation performance
+in severe fault scenarios that generate deceptive spatial
+cues (e.g., Signal Replication). To maximize robustness in
+such challenging cases, we incorporate a Diagnosis-Guided
+Intervention strategy (Sec. IV -B4), which leverages specific
+diagnosis results to enable adaptation performance beyond
+the capabilities of unsupervised filtering alone.
+FIGURE 6. Visualization of Confidence-Aware Hard Pseudo-Label
+generation for (A) Single-Source and (B) Two-Source scenarios at a
+specific intra-frame step q. First, the raw direction-of-arrival (DOA)
+likelihoods pt ,q (top) are evaluated against the dynamic peak threshold
+τt and silence threshold τsil (middle). Crucially, ambiguous predictions
+that fail to meet the confidence criteria are explicitly masked out
+(Uncertainty Mask) to prevent error propagation. Consequently, the final
+pseudo-labels eyt ,q (bottom) assign 1 only to distinct Confidence Peaks
+and 0 to Confidence Silence, ensuring that only reliable spatial cues are
+used for adaptation by masking out ambiguous regions using mt ,q.
+Among all valid Confidence Peaks, the highest-confidence peak is
+designated as the Dominant Peak, which is exclusively used for updating
+the dynamic threshold τt via the EMA update rule (Eq. 11). In the
+Two-Source case (B), where multiple peaks exceed τt , all peaks
+contribute to the pseudo-label targets, while only the single Dominant
+Peak governs the threshold update, ensuring stable and consistent
+threshold tracking regardless of the number of active sources.
+1) CONFIDENCE-AWARE PSEUDO-LABEL GENERATION
+The core intuition behind our approach is that the model’s
+prediction confidence serves as a reliable proxy for local-
+ization accuracy, even in the presence of microphone faults.
+We observe that even with corrupted audio inputs, the
+SSL model often produces high-likelihood predictions (i.e.,
+sharp peaks) when the underlying spatial cues remain
+distinguishable, as visualized in Fig. 6. In such cases, the
+model is considered to be confident, and the corresponding
+DOA estimation is likely to be accurate. Building on this
+insight, we distinguish between high-confidence regions
+and ambiguous predictions to construct a robust training
+target.
+To implement this, we generate a Confidence-Aware
+Hard Pseudo-Label sequence ˜yt,q and a binary mask
+sequence mt,q ∈ {0, 1}K for each intra-frame step
+q = 1, . . . ,Q by strictly filtering the sequential model
+predictions (Fig. 5-B). We define three distinct confidence
+regions based on a time-varying Dynamic Confidence
+Threshold τt and a fixed Silence Threshold τsil. Based on
+this classification, we construct the pseudo-labels and masks
+for each step q as follows:
+1) Confidence Peak (Positive Target): First, we identify
+the set of local maxima indices K∗
+t,q from the predicted
+likelihood vector pt,q at step q. To filter out spurious
+peaks caused by faults, we strictly accept a peak as a
+reliable source estimate only if its probability exceeds
+the dynamic threshold τt . For these indices, we assign a
+positive pseudo-label (˜yt,q,k = 1) and activate the mask
+(mt,q,k = 1).
+2) Confidence Silence (Negative Target): Angular bins
+with probabilities falling below the fixed silence
+threshold τsil are treated as confident non-source
+regions. For these indices, we assign a negative pseudo-
+label ( ˜yt,q,k = 0) and activate the mask (m t,q,k = 1) to
+suppress background noise.
+3) Uncertainty Region (Masked): Any angular bins
+that do not fall into either the Confidence Peak
+or Confidence Silence categories are defined as the
+Uncertainty Region. This implies that bins exhibiting
+intermediate probability (τ sil ≤ pt,q,k ≤ τt ) or those
+with high probability that are not local maxima (e.g.,
+slopes of a peak) are treated as ambiguous. Crucially,
+these uncertain regions are masked out (m t,q,k = 0),
+effectively excluding them from the loss calculation to
+prevent error accumulation.
+Based on these definitions, we construct the hard pseudo-
+label ˜yt,q and the mask mt,q using a unified logic (visualized
+in the bottom row of Fig. 6-A and B):
+(˜yt,q,k , mt,q,k )
+=
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(1, 1), if k ∈ K∗
+t,q and pt,q,k > τt
+(Confidence Peak),
+(0, 1), if pt,q,k < τ sil
+(Confidence Silence),
+(0, 0), otherwise
+(Uncertainty Mask),
+(8)
+where K∗
+t,q denotes the set of local maxima indices for the
+q-th intra-frame step.
+This tripartite labeling scheme effectively mitigates the sig-
+nificant degradation in SSL estimation performance caused
+by microphone faults. By employing Confidence Peak,
+we enforce prediction sharpening to recover clear decision
+boundaries, while the Uncertainty Mask and Confidence
+Silence act as safety mechanisms to prevent confirmation
+bias from ambiguous or noisy inputs. Collectively, these
+components enable the model to robustly adapt to hardware
+VOLUME 14, 2026 60577
+
+===== PDF page 10 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+failures, leading to a significant recovery in SSL accuracy.
+We quantitatively verify the contribution of each component
+and the overall performance improvement in the experimental
+results (Sec. VI-B).
+2) SELF-TRAINING OBJECTIVE
+Using the generated hard pseudo-labels and uncertainty
+masks, we formulate the optimization objective for TTA.
+Consistent with standard TTA protocols [14], we adopt a
+mini-batch-based optimization strategy rather than updating
+the model at every single time step. Specifically, the
+system accumulates the input data and their corresponding
+pseudo-labels over a sequence of B consecutive frames. Once
+a batch is fully populated, the model parameters Wt are
+updated by minimizing the sequence-wise masked MSE loss
+averaged over the batch:
+Lbatch
+= 1
+B · Q
+B∑
+i=1
+Q∑
+q=1
+(
+1
+Vi,q
+K∑
+k=1
+mi,q,k
+(˜yi,q,k − pi,q,k
+)2
+)
+, (9)
+where Vi,q = ∑K
+k=1 mi,q,k + ϵ represents the number of valid
+angular bins for the q-th step of the i-th frame, serving as
+a normalization factor and ϵ is a small constant to prevent
+division by zero. As mentioned in Sec. III-A, we adopt
+MSE loss following prior SSL formulations that treat spatial
+likelihood estimation as a regression over angular bins.
+While reliance on mini-batch statistics—particularly for
+batch normalization—can theoretically introduce sensitivity
+to batch size, our empirical analysis in Sec. VI-B6 demon-
+strates that the proposed framework maintains high stability
+across varying batch sizes. Based on this verification that
+a compact batch size is sufficient for robust adaptation,
+we set B = 8 for our experiments. To minimize the
+objective, we employ the Adam optimizer with a learning
+rate of η = 1 × 10−5, which was empirically found to
+strike an optimal balance between adaptation speed and
+stability.
+3) ADAPTIVE THRESHOLD ESTIMATION
+To ensure the robustness of the labeling process, maintain-
+ing an appropriate confidence threshold τt is paramount.
+As empirically demonstrated in Sec. VI-B4, employing a
+static threshold is insufficient for two key reasons. First,
+the optimal decision boundary varies significantly across
+different fault types (e.g., lower for signal replication,
+higher for white noise). Second, the model’s confidence
+is not constant but evolves continuously as the parameters
+are updated via self-training. A fixed threshold lacks the
+flexibility to adapt to this evolution, potentially causing false
+negatives in the early stages or admitting noise as the model
+sharpens. To address these challenges and synchronize the
+selection criteria with the model’s evolving state, we employ
+an adaptive mechanism driven by an exponential moving
+average (EMA).
+a: ADAPTIVE UPDATE MECHANISM
+To robustly track the confidence trends while accommodating
+scenarios where the number of active sound sources is
+unknown, we calculate a representative confidence score
+¯pbatch based on the Dominant Peak Assumption. Specifi-
+cally, if the maximum probability in a prediction step exceeds
+the silence threshold τsil, we assume the presence of at
+least one valid sound source. Accordingly, we extract the
+maximum probability value from each valid step (i, q) within
+the current mini-batch. The representative confidence¯pbatch is
+then computed as the average of these dominant peaks across
+all valid steps in the batch:
+¯pbatch = 1
+|Ivalid |
+∑
+(i,q)∈Ivalid
+max(pi,q), (10)
+where Ivalid = {(i, q) | i ∈ [1, B], q ∈ [1, Q], max(pi,q) >
+τsil} denotes the set of index pairs for steps containing valid
+spatial cues.
+Finally, the dynamic threshold is updated using the
+batch-aggregated confidence to ensure stability. Following
+the design principles in [43], we set the smoothing factor λ
+to a low value (e.g., λ = 0.1) to suppress rapid fluctuations.
+Crucially, if no reliable peaks are detected in the entire batch
+(i.e., Ivalid = ∅), the update is skipped to prevent the
+threshold from drifting towards noise levels:
+τt+1 =
+{
+(1 − λ)τt + λ¯pbatch, if Ivalid ̸= ∅
+τt , otherwise. (11)
+While this Dominant Peak Assumption does not explicitly
+model multiple concurrent sources, we empirically observe
+that the highest-confidence peak remains a reliable indicator
+of overall prediction confidence under microphone fault
+conditions.
+b: THRESHOLD INITIALIZATION
+Determining an appropriate initial threshold τ0 plays a
+pivotal role in boosting the adaptation performance (Fig. 5-
+A). To ensure a stable starting point for the EMA update,
+we calculate τ0 by averaging the representative confidence
+scores (dominant peaks) observed within an initialization
+buffer of Nbuffer frames. Crucially, to prevent low-confidence
+noise from biasing the initialization, we aggregate confidence
+scores from all valid intra-frame steps where the maximum
+probability exceeds the silence threshold:
+τ0 = 1
+|Iinit |
+∑
+(t,q)∈Iinit
+max(pt,q), (12)
+where Iinit = {(t , q) | t ∈ [1, Nbuffer], q ∈
+[1, Q], max(pt,q) > τ sil} denotes the set of index pairs for
+steps containing valid spatial cues within the initialization
+buffer.
+This data-driven initialization sets the EMA to a value
+tailored to the specific fault type (e.g., lower for Signal Repli-
+cation, higher for White Noise). As empirically demonstrated
+in Sec. VI-B4, this strategy prevents the cold start problem
+60578 VOLUME 14, 2026
+
+===== PDF page 11 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+and boosts TTA performance by ensuring that the model
+updates are stable from the very first step.
+Regarding the buffer size, calculating τ0 from a live data
+stream introduces a latency proportional to Nbuffer. However,
+our sensitivity analysis in Sec. VI-B3 indicates that a short
+window of Nbuffer = 8 frames is sufficient to estimate a reli-
+able τ0 comparable to using larger buffers (e.g., 64 frames).
+Based on this finding, we setNbuffer = 8, resulting in an initial
+latency of approximately 8 seconds under our experimental
+configuration. Alternatively, for scenarios requiring zero
+latency, a Synthetic Warm-up strategy can be employed using
+pre-calculated statistics from the synthetic faulty dataset
+(Dataset A), which was originally generated for training the
+Fault Diagnosis module (Sec. V -A2).
+c: STATIC SILENCE THRESHOLD
+In contrast to the dynamic peak threshold, we maintain
+a fixed value for the silence threshold τsil. This design
+choice is grounded in the intrinsic behavior of the pre-trained
+SSL models, which are optimized to assign near-zero like-
+lihoods to non-source regions during training. Furthermore,
+unlike active source signatures which are typically distorted
+or shifted by hardware faults, the acoustic characteristic
+of silence (i.e., near-zero input energy) remains largely
+invariant. Given this stability, the definition of silence does
+not require adaptation. Instead, it serves as an absolute
+anchor to prevent the model from drifting into instability
+by suppressing background noise. Therefore, we fix τsil =
+0.02, a value empirically determined to be sufficiently low
+to guarantee non-source regions while preserving potential
+weak sources (detailed analysis in Sec. VI-B5).
+4) DIAGNOSIS-GUIDED INTERVENTION STRATEGY
+While the proposed TTA framework effectively recovers
+performance across most fault scenarios, certain severe
+faults—most notably Signal Replication—present a persis-
+tent challenge. Even with the robust dynamic thresholding
+described above, the recovery in these specific cases can
+remain suboptimal compared to other fault types. This
+is primarily because Signal Replication creates deceptive
+spatial cues that mimic valid speech characteristics, making
+it intrinsically difficult for the model to distinguish between
+the true source and the hardware-induced ghost source purely
+through self-supervision.
+To overcome this limitation and further boost adaptation
+performance, we leverage the precise fault classification
+provided by our system to implement a Diagnosis-Guided
+Intervention strategy (Fig. 5-A). Unlike general TTA
+frameworks that adapt blindly to domain shifts, our approach
+exploits the explicit knowledge of the fault type and the
+affected channel index to apply targeted pre-processing
+before the data enters the adaptation loop.
+Specifically, for the Signal Replication fault, we intervene
+by explicitly forcing the input of the diagnosed faulty channel
+to zero (i.e., channel masking). This structural intervention
+breaks the erroneous phase relationships caused by the
+replicated signal, effectively converting a complex, deceptive
+fault into a simpler dead channel (No Sound) scenario that
+the SSL model can handle more robustly. The efficacy of
+this diagnosis-guided intervention is quantitatively validated
+in Sec. VI-B2e, where we demonstrate that removing the
+deceptive artifacts leads to a substantial performance boost
+in scenarios where the proposed TTA framework struggles.
+More broadly, this result highlights that incorporating explicit
+fault semantics can fundamentally reshape the adaptation
+landscape, enabling recovery beyond the limits of data-driven
+adaptation alone.
+V. EXPERIMENTS
+A. FAUL T DATA SYNTHESIS ON REAL-WORLD AUDIO
+To validate the robustness of the proposed Fault-Resilient
+Sound Source Localization Framework—which integrates
+microphone fault diagnosis with TTA—in realistic acoustic
+environments, we utilize the SSLR dataset [1] as our base
+corpus. This dataset consists of real-world multichannel
+audio recordings captured using a robot equipped with a
+4-channel circular microphone array. Specifically, the record-
+ings feature human speech generated by live talkers as well
+as loudspeakers playing back recorded speech. Crucially, the
+dataset encompasses varying acoustic complexities, ranging
+from single-source scenarios to cases with two overlapped
+sound sources, captured in diverse indoor environments with
+varying levels of background noise and reverberation.
+To simulate realistic failure scenarios, we synthetically
+inject the five fault types defined in Sec. III-B into the clean
+SSLR recordings.We specifically evaluate the system under
+single-channel failure conditions, simulating the critical
+state where the array operates with the minimum number
+of sensors (M = 3). For a detailed discussion on the
+geometric constraints and the rationale behind this single-
+fault assumption, please refer to Sec. III-B.
+While the primary evaluation focuses on single-channel
+failure conditions, real-world deployments may encounter
+simultaneous failures of multiple microphones. In particular,
+when two microphones simultaneously lose all spatial
+information (e.g., No Sound or Signal Replication), the
+geometric constraints for reliable 2D DOA estimation can no
+longer be satisfied, leading to severe localization degradation.
+To investigate how the proposed Microphone Fault Diagnosis
+model and TTA framework behave under such challenging
+conditions, we extend our evaluation to a simultaneous dual
+microphone failure scenario in Sec. VI-C.
+1) FAULT INJECTION SCENARIOS
+To systematically evaluate the impact of hardware failures,
+we synthetically inject microphone faults into the clean
+SSLR recordings. Adopting the mathematical fault model
+defined in Eq. 4 (Sec. III-B), we generate corrupted signals
+by manipulating the gain factor αm(n) and the additive
+noise term βm(n). Representative waveform examples for
+these synthesized fault signals are visualized in Fig. 2. The
+VOLUME 14, 2026 60579
+
+===== PDF page 12 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+specific implementation parameters for each fault scenario
+are configured as follows:
+• No Sound (Dead Channel): We strictly set both the
+gain and noise terms to zero (α m(n) = 0, βm(n) = 0),
+resulting in a completely silent channel containing no
+acoustic information.
+• Attenuation (Gain Mismatch): Simulating severe
+sensitivity degradation based on the criteria in [10],
+we randomly sample the gain factor αm(n) from a
+uniform distribution U (0.02, 0.05), corresponding to a
+95% to 98% reduction in signal amplitude, with no
+additive noise (βm(n) = 0).
+• Impulsive Noise (Pops & Clicks): To model intermit-
+tent spikes, we set αm(n) = 1 and inject sparse impulsive
+noise βm(n). The impulses are generated with random
+amplitudes in the range of ±[0.3, 1.0] at a frequency of
+10 to 20 occurrences per second.
+• Continuous Noise (White Noise): We inject Gaussian
+white noise βm(n) ∼ N (0, σ 2
+fault ) while maintaining
+the original signal (α m(n) = 1). To simulate varying
+intensities of interference, the noise variance σ 2
+fault is
+calibrated to achieve a Signal-to-Noise Ratio (SNR)
+randomly sampled from the range of [−5, 10] dB
+relative to the power of the original speech signal.
+• Signal Replication (Cross-Channel Copy): As defined
+in Sec. III-B, we replace the content of the target
+microphone m with the signal from another randomly
+selected microphone j (j ̸= m), such that ˜xm(n) = xj(n).
+This creates a valid speech signal that lacks the correct
+spatial phase information.
+2) CONSTRUCTION OF EXPERIMENTAL DATASETS
+Using the fault injection protocols described above, we gen-
+erate two distinct datasets derived from the SSLR corpus,
+each serving a specific purpose in our evaluation pipeline.
+To ensure experimental integrity, we strictly adhere to the
+original train/test splits of the SSLR dataset, preventing any
+data leakage between the diagnosis model training (Dataset
+A) and the TTA evaluation (Dataset B).
+Dataset A (For Fault Diagnosis): This dataset is
+constructed to train and evaluate the Microphone Fault
+Diagnosis module (Sec. IV -A). To ensure the diagnosis
+model generalizes across different sensors and failure modes,
+we apply a randomized injection strategy. For each audio
+sample in the SSLR corpus, we randomly select one target
+microphone channel and apply one of six conditions: the
+five fault types defined in the previous section or a No
+Fault (Normal) condition. The inclusion of the No Fault
+class is crucial, as it enables the diagnosis model to
+discriminate between actual hardware failures and normal
+acoustic variations.
+Dataset B (For TTA): This dataset is designed to
+simulate a realistic deployment scenario where the system
+must sequentially diagnose a hardware failure and recover
+performance via TTA (Sec. IV -B). Unlike the randomized
+nature of Dataset A, Dataset B assumes a persistent failure on
+a specific sensor during robot operation. Specifically, we fix
+the fault location to the last microphone (m = 4) of the SSLR
+test split and generate five independent evaluation sets, each
+corresponding to one of the five fault types. This controlled
+setup allows us to isolate the impact of each specific fault
+type and quantitatively verify whether our framework—after
+correctly diagnosing the faulty channel using the model
+trained on Dataset A—can successfully recover localization
+accuracy through adaptation.
+3) REAL-ENVIRONMENT DATASET UNDER MICROPHONE
+FAULT
+To verify that the proposed framework validated on the
+synthetically injected fault scenarios generalizes to authentic
+hardware failures, we additionally collect a real-environment
+dataset by physically reproducing a No Sound fault condition
+using a 4-channel microphone array with a different geometry
+from that used in the SSLR dataset. To accommodate this
+array configuration mismatch, we generate a synthetic dataset
+using a sound simulator (Pyroomacoustics [44]) and dry
+speech signals from the NIGENS dataset [45], and use it to
+fine-tune both the DOA estimation model and the proposed
+Microphone Fault Diagnosis model for the target array.
+A detailed description of the data collection procedure and
+fine-tuning protocol is provided in Sec. VI-D.
+B. IMPLEMENTATION DETAILS
+To ensure the reproducibility of our experiments, we detail
+the specific configurations for audio preprocessing, model
+architectures, and training hyperparameters. All models
+and experiments were implemented using the PyTorch
+framework. Training and evaluation were conducted on a
+workstation equipped with an Intel(R) Core(TM) Ultra 9
+285K CPU and a single NVIDIA RTX 5090 GPU.
+Audio Preprocessing: All audio recordings in the SSLR
+dataset were resampled to 24 kHz. The input for both the
+localization and diagnosis modules consists of 1-second
+non-overlapping audio segments (24,000 samples). For the
+spectral feature extraction used in the Fault Diagnosis
+module, we compute the STFT to generate time-frequency
+features with dimensions F = 257 (frequency bins) and
+L = 50 (time frames).
+Backbone SSL Models: To evaluate the generaliz-
+ability of our framework, we employ three distinct SSL
+architectures: MLP-GCC [1], GCC-PHAT-SM [2], and
+MPT-HiFTA[3]. We adopt the exact network configurations
+proposed in their respective original papers. In this work,
+these models process a 1-second input frame to predict
+a sequence of likelihood vectors corresponding to Q =
+10 intra-frame steps. Consequently, the output dimension is
+defined as Q × K (where K = 360). Prior to TTA, these
+models are pre-trained on the clean (fault-free) SSLR training
+set to serve as the initial baseline (f W0).
+60580 VOLUME 14, 2026
+
+===== PDF page 13 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+Microphone Fault Diagnosis Model: For the proposed
+Lightweight Frequency-Time Projection network (Fig. 4),
+we set the projection dimensions to Hf = 32 and Hl = 8.
+The final classifier is composed of three MLP hidden layers
+with sizes [1024, 512, 256]. The model is trained on Dataset
+A for 50 epochs using the Adam optimizer with a learning
+rate of 1 × 10−3. Thanks to the lightweight architecture, the
+inference latency is extremely low, averaging 0.099 ms on
+a CPU and 0.129 ms on a GPU per frame. This negligible
+computational cost fully guarantees real-time performance
+with minimal overhead. During inference, the Fault Queue
+length is set to N = 2, meaning a fault must persist for at least
+two consecutive frames (2 seconds) to trigger the adaptation
+process.
+TTA Protocols: Following the TTA strategy formulated
+in Sec. IV -B2, we set the mini-batch size to B = 8 for all
+experiments. For evaluation, we strictly adhere to the standard
+continuous TTA protocol: the localization performance is
+measured on the incoming mini-batch before any parameter
+updates are applied. Subsequently, the model is updated
+using the self-training objective based on the current batch,
+ensuring that the reported metrics reflect the system’s real-
+time adaptation capability under streaming data.
+Regarding the adaptive initialization of the dynamic
+threshold, we estimate τ0 using the first Nbuffer = 8 samples
+of the incoming test stream. Other TTA-specific hyperparam-
+eters, such as the learning rate, EMA momentum, and silence
+threshold, are configured exactly as specified in Sec. IV -B.
+Computational Overhead of TTA. We further quantify
+the computational cost induced by the adaptation process,
+defined as the additional time required for pseudo-label
+generation and parameter updates (excluding the forward
+inference pass). When executed on a GPU, the average over-
+head per frame is marginal: 3.11 ms for MPT-HiFTA, 1.04 ms
+for GCC-PHA T-SM, and 0.73 ms for MLP-GCC. Even
+in a CPU-only environment, the overheads remain highly
+manageable at 48.77 ms, 2.91 ms, and 2.12 ms, respectively.
+As will be discussed in Sec.VI-B, although larger models like
+MPT-HiFTA incur higher latency, they yield superior DOA
+estimation accuracy and more stable adaptation trajectories.
+Crucially, even the maximum overhead observed (≈48.77 ms
+on CPU) is negligible compared to the input frame duration
+(1 second), confirming that our TTA framework operates
+well within real-time constraints regardless of the hardware
+platform.
+VI. RESULT
+A. MICROPHONE FAUL T DIAGNOSIS
+We first evaluate the performance of the proposed Micro-
+phone Fault Diagnosis module. To ensure a rigorous
+evaluation, all models were trained using the training
+split of Dataset A, and the quantitative results reported
+in Table 1 were obtained from the held-out test split.
+The table summarizes the classification accuracy across
+different methods, comparing our proposed Lightweight
+Frequency-Time Network (Lighweight MLP) against three
+baselines: the traditional V AD-based thresholding method
+(V AD-Threshold)[10], a V AD-based MLP (V AD-MLP),
+and a Heavyweight MLP processing raw STFT and IPD
+features.
+1) LIMITATIONS OF VAD-BASED APPROACHES
+As observed in Table 1, the traditional V AD-Threshold
+method exhibits significant limitations, achieving an overall
+accuracy of only 52.70% (standard deviation: 46.83%). This
+performance drop is expected, as the original algorithm [10]
+was not designed to account for complex fault types such as
+Continuous Noise (0.00%) and Signal Replication (0.00%).
+To investigate whether V AD features themselves contain
+sufficient information to distinguish these uncovered faults—
+beyond the limitations of the original thresholding logic—we
+implemented a deep learning-based variant (V AD-MLP) by
+replacing the manual thresholds with an MLP classifier.
+While this data-driven extension significantly improves the
+detection of Continuous Noise (99.61%) by learning non-
+linear patterns, it still struggles with Signal Replication,
+yielding a low accuracy of 70.84%. This finding confirms that
+magnitude-derived V AD features alone are fundamentally
+insufficient for identifying phase-related hardware failures,
+even when processed by a powerful neural classifier.
+2) ROBUSTNESS OF THE PROPOSED METHOD
+In contrast, models utilizing spatial features (STFT +
+IPD) demonstrate superior robustness. Both the Heavy-
+weight MLP and our proposed Lightweight MLP achieve
+near-perfect overall accuracy (> 99.1%) with remarkably
+low standard deviations (1.87% and 0.06%, respectively),
+indicating not only high mean performance but also highly
+consistent diagnosis accuracy across all fault types. Notably,
+the proposed Lightweight MLP outperforms the Heavy-
+weight counterpart in distinguishing transient anomalies.
+Specifically, for Impulsive Noise (Pops & Clicks), the
+proposed method achieves 99.83% accuracy compared to
+95.35% for the Heavyweight model. This improvement
+suggests that our Frequency-Time Projection architecture
+efficiently captures the spectro-temporal signatures of inter-
+mittent spikes without the need for massive parameterization.
+Moreover, the proposed method successfully identifies the
+challenging Signal Replication fault with 99.95% accuracy,
+proving that the inclusion of IPD features effectively
+resolves phase inconsistencies that baffle traditional methods.
+These results validate that our lightweight diagnosis module
+provides a highly reliable trigger for the subsequent TTA
+process.
+B. TTA FOR MICROPHONE FAUL T
+1) RELIABILITY VERIFICATION OF THE DIAGNOSIS MODULE
+Before analyzing the localization performance recovery
+via TTA, we first verify the reliability of the proposed
+Microphone Fault Diagnosis module on Dataset B. Unlike
+VOLUME 14, 2026 60581
+
+===== PDF page 14 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+TABLE 1. Quantitative comparison of fault diagnosis performance across different methods on Dataset A. While the VAD-based baseline fails to detect
+complex faults such as Continuous Noise and Signal Replication, the proposed lightweight model effectively leverages spectral and spatial features
+(STFT+IPD) to achieve near-perfect accuracy across all fault types. The Overall Accuracy is reported as mean ± standard deviation across all fault types.
+The best performance for each metric is highlighted in bold.
+TABLE 2. Impact of the Fault Queue mechanism on diagnosis robustness
+(Dataset B). While the raw frame-level predictions (K = 1) already exhibit
+high accuracy, employing a minimal queue length of K = 2 effectively
+filters out transient prediction errors. The Overall Accuracy is reported as
+mean ± standard deviation across all fault types. This results in 100%
+triggering stability across all fault types, ensuring reliable TTA activation.
+the randomized transient faults in Dataset A, Dataset B
+simulates a realistic deployment scenario where a specific
+hardware failure persists continuously during robot opera-
+tion. Therefore, reliable triggering—ensuring that the system
+correctly identifies the fault type and initiates the appropriate
+adaptation protocol—is a prerequisite for successful TTA.
+Table 2 presents the diagnosis accuracy on Dataset B. Even
+at the single-frame level ( K = 1), the proposed lightweight
+model exhibits exceptional performance with an average
+accuracy of 99.97% (standard deviation: 0.04%). The minor
+misclassifications (e.g., 0.08% in Signal Replication) cor-
+respond to extremely short transition periods or ambiguous
+frames. However, by applying the proposed Fault Queue
+mechanism with a minimal length of K = 2 (i.e., requiring
+consistency for just two consecutive frames), we effectively
+filter out these sporadic errors. As shown in the rightmost
+column of Table 2, this simple temporal smoothing enables
+100% classification accuracy across all fault types. This result
+confirms that our diagnosis module serves as a highly robust
+trigger for the TTA framework, allowing us to evaluate the
+adaptation performance with a dependable fault detection
+baseline.
+2) QUANTITATIVE EVALUATION OF TTA PERFORMANCE
+Following the reliable fault diagnosis, we evaluate the
+DOA estimation performance recovery via the proposed
+TTA framework. To quantify the performance, we employ
+two standard metrics adopted from [1]: Mean Absolute
+Error (MAE) and Accuracy. MAE measures the average
+absolute deviation between the estimated and ground-truth
+DOAs, while Accuracy calculates the percentage of estimates
+where the error falls within a specific tolerance threshold
+(e.g., 5 ◦). Table 3 summarizes the quantitative results
+across three SSL models, comparing the baseline (Before
+TTA), the entropy minimization-based TTA (TENT [14]),
+Naive Soft-Labeling (Soft Pseudo-Label), and the proposed
+Hard-Labeling strategy (Hard Pseudo-Label) against the
+Oracle benchmark.
+a: IMPACT OF FAULTS ON PRE-TRAINED MODELS
+As shown in the Before TTA column, all fault types
+induce significant performance degradation compared to
+the No Fault condition, causing the MAE to surge by an
+average of 238% across all models (from 6.50 ◦ to 21.99 ◦).
+Specifically, No Sound and Signal Replication cause the most
+severe errors; for instance, No Sound increases the MAE of
+MPT-HiFTA by 9.20◦ (from 2.65 ◦ to 11.85 ◦), while Signal
+Replication leads to drastic degradation, causing the MAE
+to surge by 26.18 ◦ to reach 28.83 ◦. The former results in a
+complete loss of information for the affected channel, while
+the latter distorts the spatial phase relationships inherent in
+the microphone array geometry, leading to severe confusion
+in DOA estimation.
+For Attenuation, the impact varies by model architecture;
+GCC-based models (MLP-GCC, GCC-PHA T-SM) show
+relative robustness due to the magnitude-invariant nature
+of GCC features, whereas MPT-HiFTA, which utilizes
+raw STFT inputs, suffers a notable decline, with MAE
+worsening by 9.00 ◦ (from 2.65 ◦ to 11 .65◦). Noise-related
+faults (Impulsive and Continuous Noise) preserve some
+original signal characteristics, resulting in relatively smaller
+but still non-negligible errors (e.g., MAE increases from
+2.68◦ to 5.23 ◦ for MLP-GCC and from 2.80 ◦ to 5.40 ◦ for
+GCC-PHA T, whereas MPT-HiFTA shows a milder increase
+ranging from 0.65 ◦ to 0.88◦).
+b: EFFICACY OF HARD PSEUDO-LABELING
+The proposed hard pseudo-labeling TTA strategy demon-
+strates universal effectiveness across diverse architectures,
+successfully mitigating severe domain shifts ranging from
+structural failures to additive noise. In complex fault
+60582 VOLUME 14, 2026
+
+===== PDF page 15 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+TABLE 3. Quantitative comparison of DOA estimation performance (MAE and Accuracy) across three SSL models under different fault conditions.
+We compare the baseline (Before TTA), entropy minimization-based TTA (TENT), gaussian-like soft-labeling (Soft Pseudo-Label), the proposed
+hard-labeling strategy (Ours), and the Oracle performance using ground-truth labels as a reference. Notably, for the Signal Replication fault, the values in
+parentheses indicate the performance achieved by applying diagnosis-guided intervention (explicit zero-masking), effectively converting the complex
+fault into a handleable No Sound case. The Overall Accuracy is reported as mean ± standard deviation across all fault types. The best performance for
+each metric is highlighted in bold.
+scenarios, the method yields substantial performance gains
+for all evaluated models. For instance, in the No Sound
+case, MLP-GCC achieves a dramatic boost, reducing MAE
+by 26.89 ◦ (from 45.25 ◦ to 18.36 ◦). Similarly, MPT-HiFTA
+effectively recovers from Attenuation, improving accuracy
+by 8.24% points (from 77.56% to 85.80%). Notably, in the
+most challenging Signal Replication scenario, MPT-HiFTA
+exhibits a remarkable accuracy surge of 33.72% points (from
+43.34% to 77.06%), while GCC-PHA T-SM significantly
+reduces its error from 59.24 ◦ to 21.22◦.
+Beyond structural repairs, the method consistently refines
+localization precision in noisy conditions; for example,
+MPT-HiFTA reduces MAE in Impulsive Noise from 3.30 ◦
+to 2.99◦. These comprehensive improvements culminate in a
+robust aggregate performance despite the inherent challenges
+of the continuous TTA task. Consequently, the average MAE
+across all faults decreases significantly for all models, closely
+approaching their respective Oracle benchmarks: MLP-GCC
+improves from 30.05 ◦ to 15.99 ◦ (Oracle: 15.26 ◦), GCC-
+PHA T-SM from 24.10 ◦ to 12.94 ◦ (Oracle: 12.26 ◦), and
+MPT-HiFTA from 11.83◦ to 4.88 ◦ (Oracle: 3.01 ◦). Notably,
+the standard deviation of the average MAE also decreases
+consistently with improved performance, from ±10.38◦ to
+±2.70◦ for MPT-HiFTA, indicating that the proposed method
+not only improves mean localization accuracy but also yields
+more consistent performance across diverse fault types. This
+uniform convergence validates the robustness of our self-
+training objective, demonstrating its capability to facilitate
+successful adaptation across varied model capacities.
+Another critical observation is the correlation between
+model capacity and adaptation stability. While the high-
+capacity MPT-HiFTA model exhibits consistent improve-
+ments across all evaluated fault types, the lighter models
+(MLP-GCC and GCC-PHA T-SM) occasionally experience
+minor fluctuations or slight performance drops. This insta-
+bility stems from the inherent challenge of continuous TTA
+rather than the quality of supervision signals alone. Notably,
+we observed similar fluctuations in lighter models even under
+an Oracle setting (where ground-truth labels are used for
+adaptation). While we empirically verified that these models
+eventually converge with sufficient updates, this phenomenon
+suggests that the frame-by-frame optimization process is
+VOLUME 14, 2026 60583
+
+===== PDF page 16 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+intrinsically volatile for models with limited capacity. Lighter
+models, due to their restricted parameter space, are more
+sensitive to these instantaneous gradient updates, whereas
+MPT-HiFTA leverages its superior representational power to
+buffer against such volatility, ensuring a stable adaptation
+trajectory.
+c: COMPARISON WITH ENTROPY MINIMIZATION (TENT)
+We also evaluate TENT [14], a widely adopted test-time
+adaptation method that minimizes prediction entropy.
+By forcing the DOA likelihood of each angular bin towards
+the extremes—suppressing low-probability bins while
+amplifying the peak probability—this objective effectively
+sharpens the output probability distribution. As shown in
+Table 3, TENT generally improves performance across all
+models, demonstrating that this sharpening effect helps
+recover spatial cues lost due to microphone faults. For
+instance, in the MPT-HiFTA model, TENT reduces the MAE
+under the No Sound condition by approximately 55% (from
+11.85◦ to 5.30◦).
+However, despite these improvements, TENT consistently
+underperforms compared to our proposed Hard Pseudo-
+Labeling strategies. While TENT achieves an average MAE
+of 6.02 ◦ for MPT-HiFTA across all fault types, our Hard
+Pseudo-Labeling strategy attains a significantly lower error
+of 4.88 ◦. This performance gap is particularly evident in
+complex faults like Signal Replication. Although TENT
+achieves substantial recovery in this scenario (reducing
+MAE from 28.83 ◦ to 12.83 ◦), it still remains inferior to
+our method, which reaches 9.60 ◦. We attribute this to the
+inherent limitation of indiscriminate entropy minimization:
+TENT adapts on all samples without a mechanism to verify
+prediction reliability. In contrast, our method explicitly filters
+out ambiguous predictions via dynamic thresholding, ensur-
+ing that the model selectively learns from high-confidence
+supervision, thereby achieving more precise adaptation than
+entropy-based approaches.
+d: COMPARISON WITH SOFT PSEUDO-LABELING
+To validate the effectiveness of our hard-labeling strategy,
+we implemented a Soft Pseudo-Labeling baseline for
+comparison. In our proposed hard-labeling approach (defined
+in Eq. 8), a pseudo-label is generated by assigning a
+probability of 1 solely to the confidence peak index k ∗ (i.e.,
+a one-hot vector). In contrast, the soft baseline replaces this
+strict assignment with a Gaussian distribution centered at
+k ∗, utilizing the same spatial encoding function used during
+training (Eq. 2). Crucially, to ensure a fair comparison, the
+silence thresholding mechanism remains identical; soft labels
+are generated only when the model’s maximum confidence
+exceeds τsil, and uncertainty masking is applied to ignore
+low-probability bins.
+Despite utilizing this refined probabilistic representation,
+the soft-labeling approach consistently underperforms com-
+pared to the hard-labeling strategy. We attribute this to the risk
+of distributing probability mass to neighboring angles under
+severe domain shifts. While hard labels force a sharp, decisive
+update on the single most confident direction, soft labels may
+inadvertently reinforce ambiguity or local noise surrounding
+the peak, thereby hindering the rapid adaptation required for
+fault recovery.
+e: VALIDATING THE NECESSITY OF DIAGNOSIS-GUIDED
+ADAPTATION
+The Signal Replication scenario serves as a critical stress
+test to verify the necessity of our proposed diagnosis-
+guided framework. As observed in Table 3, applying TTA
+blindly yields notable improvement for the high-capacity
+MPT-HiFTA model (reducing MAE from 28.83 ◦ to 9.60 ◦).
+However, this recovered performance remains significantly
+inferior compared to other fault types, which typically con-
+verge to an MAE of approximately 3 ◦–4◦. This discrepancy
+arises because the replicated signals generate deceptive
+yet plausible spatial features; a blind adaptation algorithm
+struggles to fully disentangle these artifacts from the real
+source, resulting in suboptimal convergence.
+This limitation underscores why a unifiedDiagnosis + TTA
+pipeline, described in Sec. IV -B4, is essential. By leveraging
+the precise fault classification from our diagnosis module
+(Table 2), our system triggers a targeted intervention, partic-
+ularly for challenging faults like Signal Replication. Specif-
+ically, by explicitly zero-masking the corrupted channel,
+this intervention effectively converts the complex structural
+failure—characterized by conflicting spatial cues—into a
+geometrically tractable No Sound condition (Diagnosis-
+Guided Intervention strategy, as illustrated in Fig. 5). The
+results obtained via this diagnosis-guided strategy (reported
+in parentheses in Table 3) show significant performance
+restoration (e.g., MPT-HiFTA reaches 3.92◦ MAE, matching
+the performance of the No Sound case). Ultimately, these
+findings compellingly validate that accurate fault diagnosis is
+not merely an auxiliary step but a prerequisite for achieving
+robust and optimal adaptation against structural hardware
+failures.
+FIGURE 7. Robustness analysis of TTA performance with respect to the
+initialization buffer duration (N buffer ). We evaluate (A) Accuracy and
+(B) MAE across varying buffer lengths Nbuffer ∈ {8, 16, 32, 64} frames.
+The solid lines represent online initialization using the incoming stream
+(Dataset B), closely tracking the reference performance (dashed lines)
+derived from training set statistics (Dataset A).
+60584 VOLUME 14, 2026
+
+===== PDF page 17 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+3) EFFECT OF BUFFER DURATION ON THRESHOLD
+INITIALIZATION IN TTA
+To determine the initial dynamic confidence threshold
+τ0 defined in Sec. IV -B3b, we analyze the sensitivity of the
+TTA performance to the buffer duration used for estimating
+the confidence statistics. Fig. 7 illustrates the impact of
+varying the buffer length Nbuffer ∈ {8, 16, 32, 64} frames
+on both accuracy and MAE. Here, the solid lines represent
+the results obtained using the initialization buffer from the
+evaluation set (Dataset B), simulating an online deployment
+scenario where the threshold is calculated on-the-fly.
+Minimal Latency with Stable Performance. The perfor-
+mance of all three models remains remarkably stable across
+different buffer durations. Specifically, increasing the buffer
+length from 8 to 64 frames yields negligible improvements
+in Accuracy and MAE. This indicates that the confidence
+distribution of the SSL models converges rapidly, allowing
+us to estimate a reliable τ0 with a very short observation
+window. Consequently, we select the smallest buffer size
+of Ninit = 8 frames for our final system. This choice
+significantly reduces the initialization latency, enabling the
+TTA module to trigger adaptation rapidly upon fault detection
+without accumulating a long history of data.
+Robustness Across Datasets. We further validate the
+robustness of our threshold initialization by comparing it
+with an offline strategy. The dashed lines in Fig. 7 show
+the performance when τ0 is pre-calculated using the training
+split (Dataset A). The results closely align with those
+obtained from Dataset B, showing no significant deviation.
+This indicates that our adaptation framework is highly
+resilient to variations in initialization statistics, maintaining
+consistent performance regardless of whether the threshold is
+derived from the training domain or estimated from a short
+window in an unseen target domain. Therefore, our method
+ensures reliable operation even when initialized with different
+statistical baselines, paving the way for the stable adaptation
+process described next.
+Compensation via Dynamic Thresholding. To illustrate
+this robustness quantitatively, we observe the variation in
+the initialized τ0 values across different buffer sizes. For
+instance, in the Signal Replication scenario, τ0 varies from
+0.5193 (N buffer = 8) to 0.4040 (N buffer = 64), fluctuating
+around the Dataset A baseline of 0.4471. Similarly, for White
+Noise, τ0 ranges between 0.8041 and 0.7574, compared to
+0.7650 from the training domain. Crucially, despite these
+variations in initialization, the final adaptation performance
+remains consistent. This stability is attributed to the efficacy
+of our Dynamic Thresholding mechanism. Even if the
+initial τ0 deviates slightly due to the short observation
+window, the dynamic update rule allows the threshold
+to rapidly align with the actual confidence distribution
+of the test predictions during the adaptation process.
+A detailed analysis of this self-correcting behavior and the
+impact of Dynamic Thresholding is presented in the next
+section (Sec. VI-B4).
+4) IMPACT OF DYNAMIC THRESHOLDING AND
+INITIALIZATION
+Table 4 presents the ablation study results isolating the impact
+of the initialization strategy and the dynamic thresholding
+mechanism using the MPT-HiFTA model, chosen for its
+demonstrated stability. Crucially, the results presented in
+Table 4 were obtained without applying the proposed
+Diagnosis-Guided Adaptation ; instead, we evaluated the
+pure blind adaptation performance across all fault types.
+This includes challenging scenarios like Signal Replication,
+ensuring that our parameter selection is robust even under
+worst-case structural anomalies.
+We compare three configurations: (1) a fixed threshold
+(τ0 = 0.8) without updates, (2) a fixed threshold with
+dynamic updates, and (3) our proposed method using both
+adaptive initialization and dynamic updates.
+Limitations of Fixed Static Thresholds. The results in
+the first column (Fixed τ0 = 0.8, w/o Dynamic Thres.)
+clearly demonstrate that a universally fixed threshold is
+suboptimal for diverse fault scenarios. As analyzed in the
+previous section, the optimal confidence distribution varies
+significantly by fault type; Signal Replication typically sta-
+bilizes around a threshold of 0.4 ∼ 0.5, whereas Continuous
+(White) Noise aligns well with a higher threshold near 0.8.
+Consequently, fixing τ0 at 0.8 yields reasonable performance
+for Continuous Noise (MAE 3.28 ◦) since the initialization
+matches the optimal operating point. However, for Signal
+Replication, this high static threshold is excessively strict,
+filtering out valid predictions and leading to a significant
+degradation in performance (MAE 11.53 ◦).
+Self-Correcting Capability of Dynamic Thresholding.
+The second column reveals the critical role of the dynamic
+thresholding mechanism. Even when initialized with a
+suboptimal value of 0.8, enabling the dynamic update
+rule allows the system to recover. Notably, in the Signal
+Replication scenario, the MAE improves drastically from
+11.53◦ to 9.91◦. This improvement confirms that the dynamic
+thresholding mechanism successfully adapts the threshold
+from the incorrect initial value (0.8) down to the optimal
+operating range (0.4 ∼ 0.5) during the adaptation process.
+Conversely, for Continuous Noise, the performance remains
+stable (MAE 3.29 ◦) because the initial value was already
+close to the optimal range, requiring minor adjustment.
+Boosting Performance via Adaptive Initialization.
+Finally, the rightmost column demonstrates the additive
+benefit of the proposed Adaptive Initialization. By starting
+the adaptation process with a threshold estimated from
+a short initial buffer (N init = 8) of the input stream
+(rather than an arbitrary fixed value), we observe improved
+performance across most metrics. This is particularly evident
+in challenging scenarios like Signal Replication, where the
+MAE further decreases to 9.60 ◦. This confirms that while
+dynamic thresholding provides robustness against incorrect
+initialization, combining it with rapid on-the-fly initialization
+leads to a highly stable and accurate adaptation trajectory.
+VOLUME 14, 2026 60585
+
+===== PDF page 18 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+TABLE 4. Ablation study on confidence thresholding strategies. We evaluate the incremental contribution of the Dynamic Thresholding mechanism and
+the Adaptive Initialization of τ0 using MPT-HiFTA model. The Overall Accuracy is reported as mean ± standard deviation across all fault types. The best
+performance for each metric is highlighted in bold.
+FIGURE 8. Impact of the silence threshold (τ sil ) on TTA performance
+using the MPT-HiFTA model. The results illustrate a critical trade-off: an
+excessively low threshold leads to silence under-detection (false
+negative), while an excessively high threshold causes silence
+over-detection (false positive).
+5) IMPACT OF SILENCE THRESHOLD IN TTA
+The silence threshold τsil plays a pivotal role in distinguishing
+active predictions from non-informative background noise.
+To investigate the impact ofτsil on TTA performance, we con-
+ducted a sensitivity analysis using the MPT-HiFTA model,
+varying τsil within the range of [0.001, 0.1]. This analysis
+encompasses all fault types, including Signal Replication,
+to verify the universal applicability of the threshold.
+As presented in Fig. 8, we observe a consistent behavioral
+trend: performance improves as the threshold increases up to
+a certain point, after which it begins to degrade. Based on
+these results, we identify τsil = 0.02 as the optimal operating
+point. The results reveal a clear trade-off governed by the
+system’s sensitivity to silence:
+Under-detection of Silence (τ sil < 0.02): When the
+threshold is set too low, the criterion for identifying silence
+becomes excessively strict. This means the system requires
+an extremely low confidence score to consider an input as
+silence. Consequently, actual silence may fail to be captured
+(false negative).
+Over-detection of Silence ( τsil > 0.04): Conversely,
+as the threshold increases, the criterion becomes overly
+permissive. Consequently, predictions that are not actually
+silence may be incorrectly selected as silence (false positive).
+This leads to signal loss, where potentially informative spatial
+cues are discarded, resulting in performance degradation.
+Therefore, the choice of τsil = 0.02 serves as an effective
+equilibrium, balancing the risks of false negative (too
+strict) versus false positive (too permissive). This uniform
+stability across diverse faults demonstrates that our proposed
+TTA framework is robust without requiring fault-specific
+hyperparameter tuning.
+6) ANALYSIS OF BATCH SIZE IN TTA
+To determine the optimal configuration for online TTA,
+we investigate the sensitivity of TTA performance to batch
+size variations using the MPT-HiFTA model. As observed
+in Fig. 9, the TTA performance remains remarkably stable
+across different batch sizes (B ∈ {8, 16, 32, 64}). Contrary
+to the common assumption that larger batches are essential
+for stabilizing batch normalization statistics, our empirical
+results show minimal performance fluctuation. For instance,
+the average MAE across all faults is 4.88 ◦ at B = 8 and
+4.86◦ at B = 32, indicating that a small batch size
+provides sufficiently representative statistics for effective
+domain adaptation in our framework.
+Based on these observations, we analyze the trade-off
+between adaptation accuracy and real-time responsiveness.
+Using a larger batch size increases the time interval between
+parameter updates, as the system must buffer input frames
+for a longer duration before performing an adaptation step.
+This latency can hinder the model’s ability to react swiftly
+to sudden environmental changes or dynamic faults. Further-
+more, larger buffers impose higher memory requirements,
+which is disadvantageous for embedded deployment. Given
+that B = 8 yields performance comparable to larger batches
+while maintaining a high update frequency and a low memory
+footprint, we select 8 as the efficient batch size for our online
+TTA protocol.
+7) THRESHOLD SENSITIVITY ANALYSIS (τ T )
+To further investigate the robustness of the proposed
+TTA framework with respect to the confidence threshold,
+we conduct a sensitivity analysis by fixing τt to a specific
+static value across all time steps (i.e., τt = c for all t),
+rather than employing the dynamic update rule described
+in Sec. IV -B3. This controlled setting isolates the direct
+effect of the threshold magnitude on adaptation performance,
+independently of the dynamic update mechanism. All other
+60586 VOLUME 14, 2026
+
+===== PDF page 19 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+FIGURE 9. Impact of batch size on TTA performance ((A) MAE and
+(B) Accuracy) using the MPT-HiFTA model. The gray bars represent the
+baseline performance without TTA, while the colored bars indicate the
+adaptation performance across batch sizes ranging from 8 to 64.
+hyperparameters are kept identical to those used in the
+preceding experiments, and we employ the MPT-HiFTA
+model, which demonstrated the most stable adaptation
+trajectories in our prior analyses.
+Fig. 10 presents the results across the full range of
+threshold values τt ∈ {0.02, 0.1, 0.2, . . . ,0.9} for all five
+fault types. The key observation is that the majority of
+fault types exhibit remarkably stable TTA performance over
+a broad range of static threshold values. Specifically, for
+Impulsive Noise and Continuous Noise—fault conditions
+under which MPT-HiFTA already demonstrated relatively
+minor performance degradation (Table 3)—the adaptation
+performance remains nearly constant across the entire range
+from 0.1 to 0.8, confirming that the SSL model retains
+sufficiently reliable spatial cues even under these fault
+conditions to support stable self-training regardless of the
+threshold choice. Conversely, an excessively low threshold
+(τt = 0.02), which is equivalent to the silence threshold τsil
+and thus represents an extreme lower bound, leads to under-
+filtering, where noisy and unreliable predictions are admitted
+FIGURE 10. Sensitivity analysis of the confidence threshold (τ t ) on TTA
+performance ((A) MAE and (B) Accuracy) using the MPT-HiFTA model.
+To isolate the effect of the threshold magnitude independently of the
+dynamic update rule, τt is fixed to a static value across all time steps.
+Most fault types exhibit stable performance over a broad range, while
+Signal Replication shows stability within a narrower range due to its
+deceptive spatial cues.
+as supervision signals, resulting in a slight but consistent
+performance degradation across all fault types.
+TABLE 5. Performance under fault misdetection scenario with varying
+detection failure duration.
+For No Sound and Attenuation, which incur moderate
+performance degradation before TTA, stable adaptation
+performance is maintained within a slightly narrower but still
+broad range of 0.1 to 0.7. A mild degradation is observed only
+at high threshold values (τ t ≥ 0.8), where the overly strict
+filtering criterion rejects too many valid predictions, leading
+to insufficient supervision signals for adaptation.
+In contrast, Signal Replication exhibits greater sensitivity
+to the threshold choice, yielding stable performance only
+within the range of approximately 0.1 to 0.5. This is
+consistent with our earlier observation that replicated signals
+generate deceptive yet low-confidence spatial cues, shifting
+the model’s overall confidence distribution toward lower
+values. Consequently, a high static threshold tends to
+excessively filter out these already-degraded predictions,
+resulting in a marked performance decline for τt ≥ 0.6.
+These findings provide a clear empirical basis for validat-
+ing our threshold initialization and dynamic update strategies
+described in Sec. IV -B3. As reported in Sec. VI-B3, the
+adaptive initialization with Nbuffer = 8 consistently estimates
+τ0 within the ranges of 0.4–0.5 for Signal Replication and
+0.75–0.80 for Continuous Noise, both of which fall squarely
+within the stable operating regions identified in this analysis.
+VOLUME 14, 2026 60587
+
+===== PDF page 20 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+This confirms that our data-driven initialization strategy
+effectively avoids suboptimal threshold values even with
+a minimal observation window. Furthermore, the dynamic
+update mechanism (Eq. 11) continuously tracks the evolving
+confidence distribution during adaptation, preventing the
+threshold from drifting into unstable regions over time and
+yielding performance gains over fixed threshold strategies,
+as demonstrated in Sec. VI-B4.
+Collectively, these results demonstrate that the proposed
+threshold management strategy is not an arbitrary design
+choice but a well-grounded mechanism that ensures robust
+TTA performance across diverse fault conditions. Notably,
+a fixed initialization of τ0 = 0.8, as evaluated in Sec. VI-B4,
+would fall outside the stable range for Signal Replication
+(0.1–0.5), underscoring that adaptive initialization is not
+merely beneficial but essential for the most challenging fault
+type.
+8) ANALYSIS OF TTA DEGRADATION UNDER MICROPHONE
+FAULT DETECTION FAILURE
+To verify the robustness of the proposed framework under
+misdiagnosis, we analyze the system’s behavior when the
+fault diagnosis module produces a false positive. Specifically,
+we simulate a scenario where the true fault is Impulsive
+Noise—the fault type that induced the least performance
+degradation among all evaluated conditions (Table 3)—but
+is misdetected as Signal Replication. This represents the
+worst-case false positive scenario, as it triggers an unneces-
+sary channel masking intervention, silencing a channel that,
+despite containing impulsive noise, still retains substantial
+spatial information, thereby maximizing the potential loss
+of valid spatial cues. We assume that after the initial
+misdetection persists for K = 2 consecutive frames and
+triggers the erroneous intervention, the correct fault type is
+re-diagnosed after a varying duration of 10s, 60s, 300s, and
+600s, at which point the intervention is released.
+Table 5 summarizes the results. Remarkably, even under
+the most prolonged misdetection scenario of 600 seconds
+(10 minutes), the performance degradation remains marginal,
+with the MAE increasing by only 0.15◦ (from 2.99◦ to 3.14◦)
+and the accuracy declining by merely 0.34% (from 92.85%
+to 92.51%). For shorter misdetection durations, the impact
+is negligible; at 10 seconds, the performance is virtually
+identical to the correctly diagnosed baseline.
+These results highlight two important properties of the
+proposed framework. First, such a prolonged continuous
+misdetection is highly unlikely in practice, given the
+near-perfect diagnosis accuracy demonstrated in Table 2.
+Second, even in this extreme hypothetical scenario, the
+self-training process driven by confidence-aware pseudo-
+labeling partially compensates for the erroneous intervention,
+limiting the performance degradation to a negligible level.
+It should be noted, however, that this analysis is conducted
+under the implicit assumption that the fault diagnosis module
+eventually re-diagnoses the correct fault type within a finite
+duration—an assumption that holds for the predefined fault
+types evaluated in this work, where the fault signatures are
+sufficiently distinct to enable eventual correct classification.
+For out-of-distribution fault types whose signatures do not
+resemble any predefined category, this self-correction mech-
+anism may not activate, and prolonged misdetection beyond
+the evaluated range could occur. That said, we acknowledge
+that the current diagnosis module is trained on a predefined
+set of fault types, and its behavior under unexpected
+or out-of-distribution hardware failures remains an open
+challenge. We identify the development of more probabilistic
+and reversible intervention mechanisms for such unseen
+fault conditions as an important direction for future work
+(Sec. VII).
+C. SIMUL TANEOUS DUAL MICROPHONE FAILURE
+SCENARIO
+1) DETECTION OF SIMULTANEOUS DUAL MICROPHONE
+FAILURE
+While the primary experiments in this work are conducted
+under the single-fault assumption (Sec. III-B), real-world
+deployments may encounter simultaneous failures of multiple
+microphones. To investigate the generalizability of the
+proposed framework to such scenarios, we extend our
+evaluation to a dual microphone failure setting. Following
+the dataset construction protocol described in Sec. V -A2,
+we generate Dataset A (Dual Fault) and Dataset B (Dual
+Fault). For Dataset A (Dual Fault), two microphone channels
+and their corresponding fault types are randomly selected
+for each audio sample, with the same fault type applied
+to both channels simultaneously—reflecting the practical
+observation that simultaneous failures of different types
+across multiple microphones are rare, and concurrent faults
+typically share the same failure mode. For Dataset B (Dual
+Fault), we simulate a realistic deployment scenario where
+microphones 3 and 4 simultaneously experience the same
+fault type, extending the single-fault assumption of the
+original Dataset B (where only microphone 4 was faulty).
+TABLE 6. Dual-fault diagnosis accuracy on Dataset A (Dual Fault) and
+Dataset B (Dual Fault). The results are consistent with the single-fault
+diagnosis results in Table 1 and Table 2, confirming that the proposed
+Lightweight MLP model generalizes effectively to simultaneous dual
+microphone failure scenarios. The Overall Accuracy is reported as mean ±
+standard deviation across all fault types. The best performance for each
+metric is highlighted in bold.
+60588 VOLUME 14, 2026
+
+===== PDF page 21 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+The fault diagnosis model is retrained on the training split
+of Dataset A (Dual Fault) following the same protocol as
+in Sec. V -B. Table 6 summarizes the dual-fault diagnosis
+accuracy on both the test split of Dataset A (Dual Fault) and
+Dataset B (Dual Fault). The results demonstrate near-perfect
+accuracy across all fault types, consistent with the single-fault
+results reported in Table 1 and Table 2. This confirms that the
+proposed Lightweight MLP model generalizes effectively to
+simultaneous dual microphone failure scenarios without any
+degradation in detection reliability.
+2) TTA PERFORMANCE UNDER SIMULTANEOUS DUAL
+MICROPHONE FAILURE
+Table 7 presents the TTA performance under the dual
+microphone failure scenario using the MPT-HiFTA model.
+As expected from the geometric constraints discussed in
+Sec. III-B, the Before TTA performance degrades signif-
+icantly compared to the single-fault scenario (Table 3),
+as the simultaneous failure of two microphones reduces the
+available spatial information below the minimum required for
+reliable 2D DOA estimation. The degree of degradation is
+closely correlated with the amount of spatial information lost:
+fault types that completely destroy spatial cues (No Sound
+and Signal Replication) exhibit the most severe degradation
+(MAE of 67.58 ◦ and 50.83◦, respectively), while fault types
+that partially preserve spatial information (Impulsive Noise
+and Continuous Noise) show relatively modest degradation
+(MAE of 5.59 ◦ and 5.27◦, respectively).
+TABLE 7. TTA performance under simultaneous dual microphone failure
+(microphones 3 and 4) using the MPT-HiFTA model. While fault types that
+preserve spatial information (Impulsive Noise and Continuous Noise)
+show recovery comparable to the single-fault scenario, fault types that
+completely destroy spatial cues (No Sound and Signal Replication) exhibit
+more limited recovery due to insufficient spatial information for reliable
+adaptation. The Overall Accuracy is reported as mean ± standard
+deviation across all fault types. The best performance for each metric is
+highlighted in bold.
+Despite these challenges, the proposed TTA framework
+consistently improves performance across all fault types
+after adaptation. For fault types that retain substantial
+spatial information (Impulsive Noise and Continuous Noise),
+the recovered performance remains comparable to the
+single-fault scenario, confirming the effectiveness of the
+self-training process even under dual failure conditions.
+For Attenuation, where the faulty microphones still retain
+some residual spatial information, TTA achieves a substantial
+recovery with an MAE reduction of approximately 25◦ (from
+61.39◦ to 36.09◦).
+For No Sound and Signal Replication under dual failure
+conditions, however, the recovered MAE of 49.55 ◦ and
+41.65◦ remain substantially far from the No Fault baseline
+(2.65◦). This result is consistent with the geometric constraint
+discussed in Sec. III-B (M ≥ 3): when two microphones
+simultaneously lose all spatial information in a 4-channel
+array, the remaining two operational microphones are fun-
+damentally insufficient to resolve unambiguous 2D DOA,
+regardless of the adaptation strategy employed. These results
+therefore confirm that the practical boundary of the proposed
+framework—and indeed of any SSL system under this array
+configuration—lies not in the adaptation algorithm itself,
+but in the irreducible geometric constraint imposed by the
+hardware configuration.
+D. REAL-ENVIRONMENT EVALUATION OF TTA UNDER
+MICROPHONE FAUL T
+To validate the generalizability of the proposed framework
+beyond the SSLR dataset and to assess its robustness against
+authentic hardware failures, we conduct a real-environment
+evaluation using a 4-channel microphone array. To physically
+simulate a realistic fault condition, we deliberately unplug
+the connector of one microphone, triggering a No Sound
+fault (Fig. 12) by disconnecting microphone channel 4. This
+fault type was selected as it is the most straightforward to
+physically reproduce in a controlled manner, whereas other
+fault types (e.g., Signal Replication or Continuous Noise)
+are difficult to induce reliably in a real hardware setting.
+Audio is recorded in a meeting room environment (Fig. 11)
+with a 4-channel microphone array placed at the center,
+and a loudspeaker serving as the sound source is positioned
+at 8 candidate locations spaced 45 ◦ apart at a distance of
+1 m. Speech from the LibriSpeech test set [46] is played
+at each location for 1 minute per direction. To provide a
+reference baseline, we also record audio with all microphone
+connectors intact (No Fault condition).
+FIGURE 11. Real-environment experimental setup for validating the
+proposed framework. (A) The recording environment consists of a
+meeting room with a 4-channel microphone array placed at the center of
+a table.(B) The experimental configuration with 8 candidate sound source
+locations spaced 45 ◦ apart at a distance of 1 m from the microphone
+array, covering the full 360 ◦ azimuth range.
+1) FINE-TUNING VIA SOUND SIMULATION
+Specifically, we first generate 100,000 room impulse
+responses (RIRs) using Pyroomacoustics [44] with
+VOLUME 14, 2026 60589
+
+===== PDF page 22 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+FIGURE 12. Physical reproduction of the No Sound fault condition.
+A hardware failure is deliberately induced by unplugging the connector of
+one microphone channel in the 4-channel array, resulting in a complete
+loss of signal from the affected channel.
+TABLE 8. Real-environment TTA performance under an authentic No
+Sound fault, physically induced by unplugging a microphone connector.
+The fault diagnosis model achieves 100% detection accuracy, and TTA
+successfully recovers localization performance, confirming the
+generalizability of the proposed framework beyond synthetic fault
+conditions.
+randomized room geometries and source-microphone config-
+urations that match the target array layout. We then convolve
+the speech recordings from the training split of the NIGENS
+dataset [45] with the generated RIRs to synthesize 4-channel
+audio with corresponding DOA labels. Specifically, each
+speech sample is convolved with a randomly selected RIR
+that is used only once and not reused across different samples,
+ensuring diversity in the synthesized acoustic conditions.
+The DOA estimation model (MPT-HiFTA) is fine-tuned on
+this synthetic dataset for 1 epoch using the same training
+protocol described in Sec. V -B, while keeping all other
+hyperparameters identical. For the fault diagnosis model,
+we apply the fault injection protocol defined in Sec. V -A1
+to the same synthetic 4-channel audio to construct a fault
+dataset, and subsequently fine-tune the proposed Lightweight
+MLP for 1 epoch. Note that since the evaluation is performed
+on LibriSpeech recordings, there is no overlap between
+the NIGENS training data and the test audio, ensuring an
+unbiased evaluation.
+2) REAL-ENVIRONMENT TTA VALIDATION
+Using the fine-tuned models, we process the recorded
+real-world audio as follows: the fine-tuned fault diagnosis
+model first identifies the fault type and the affected channel,
+and the fine-tuned DOA estimation model then performs
+TTA following the protocol described in Sec. IV -B. Although
+our framework supports real-time streaming operation, the
+recorded audio is processed offline in this evaluation to ensure
+precise and reproducible analysis.
+Table 8 summarizes the results. The fault diagnosis model
+achieves 100% accuracy in detecting the No Sound fault
+even at the single-frame level (K = 1), which is consistent
+with the near-perfect frame-level accuracy reported in Table2
+and confirms that the diagnosis model generalizes reliably
+to authentic hardware failures. Following fault detection, the
+proposed TTA framework successfully recovers localization
+performance, reducing the MAE from 29.20 ◦ to 16.57 ◦
+and improving accuracy from 61.48% to 70.66%. While
+this recovered performance remains below the No Fault
+baseline (9.54 ◦ MAE, 82.33% accuracy), we attribute this
+gap primarily to two factors.
+First, the Sim-to-Real discrepancy inherent in simulation-
+based fine-tuning introduces a performance ceiling, con-
+sistent with observations in [3] where similar degradation
+was reported when models trained on simulated data are
+applied to real recordings. Second, the total available data
+for TTA is limited to approximately 8 minutes of recordings,
+which is significantly less than the SSLR test set used in the
+main experiments. We expect that collecting more diverse
+real-world data and extending the adaptation duration would
+further close this gap. Collectively, these results validate that
+the proposed framework is not only effective on the SSLR
+benchmark but also generalizes to real-world hardware fault
+scenarios.
+FIGURE 13. Visualization of the DOA model prediction under the No
+Sound fault condition with additional background noise (SNR: −8.34 dB).
+(A) The 4-channel audio input where Mic 4 is silent due to the hardware
+fault, and the remaining channels contain both speech and background
+noise. (B) The corresponding DOA likelihood predictions, where the
+maximum prediction value (1.08 × 10−4) remains well below the static
+silence threshold (τ sil = 0.02), confirming that the silence threshold
+effectively suppresses noisy inputs even under severe background noise
+conditions.
+3) ROBUSTNESS OF SILENCE THRESHOLD UNDER NOISY
+CONDITIONS
+To address the concern that the static silence threshold τsil
+may become unreliable under varying background noise
+levels, we conduct an additional analysis to verify its
+robustness under severe noise conditions. Specifically, using
+the same real-environment setup described in Sec. VI-D2,
+we record 10 seconds of audio with the No Sound fault active
+on microphone channel 4, while simultaneously introducing
+additional background white noise at an SNR of −8.34 dB
+relative to the previously recorded speech signal. This
+noise level corresponds to a severely degraded acoustic
+environment, comparable to conditions between a noisy
+60590 VOLUME 14, 2026
+
+===== PDF page 23 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+café (approximately −5 dB SNR) and loud machinery noise
+(approximately −10 dB SNR).
+The recorded noisy audio is fed into the fine-tuned
+DOA estimation model (MPT-HiFTA), and we examine the
+maximum prediction value across all intra-frame steps to
+verify whether the static silence threshold remains effective in
+suppressing non-source predictions. As illustrated in Fig. 13,
+the DOA likelihood predictions for a representative 1-second
+segment remain consistently well below the static silence
+threshold (τsil = 0.02), with a maximum prediction value of
+1.08 × 10−4. Furthermore, this behavior is consistent across
+the entire 10-second recording, with the average maximum
+prediction over all segments measured at 1.0771×10−4, con-
+firming that the model produces uniformly low-confidence
+predictions throughout the noisy silence period.
+These results demonstrate that the static silence threshold
+τsil = 0.02 provides a sufficiently large margin against severe
+background noise, effectively preventing noisy inputs from
+being misclassified as valid source predictions. We attribute
+this robustness to the inherent noise-resilience of the
+pre-trained DOA estimation model, which is specifically
+designed and trained to handle noisy acoustic conditions.
+Consequently, even in the presence of severe background
+noise, the silence threshold reliably suppresses non-source
+regions, ensuring the stability of the pseudo-labeling process
+during TTA.
+VII. CONCLUSION AND FUTURE WORKS
+In this paper, we proposed a comprehensive Fault-Resilient
+SSL framework that ensures reliable robotic perception even
+under severe hardware failures. By tightly integrating a
+Lightweight Frequency-Time Projection Network for fault
+diagnosis with a Diagnosis-Guided Confidence-Aware TTA
+strategy, our system autonomously identifies sensor malfunc-
+tions and adapts the model at test-time. Experimental results
+demonstrate that the proposed method effectively mitigates
+performance degradation, reducing the MAE from 21.99 ◦ to
+9.91◦ averaged across diverse models and fault conditions.
+Furthermore, we validate the generalizability of the proposed
+framework through a real-environment experiment using a
+physical microphone array with an authentic hardware fault,
+confirming that the framework is not limited to synthetic fault
+conditions but extends to real-world hardware failures.
+Our findings highlight two critical insights for robust
+auditory perception. First, we demonstrated that accurate
+fault diagnosis is a prerequisite for effective adaptation;
+specifically, our diagnosis-guided intervention strategy—
+which masks corrupted channels based on precise fault
+classification—was essential for recovering from structural
+failures like signal replication, where unsupervised adapta-
+tion alone proved insufficient. Second, our confidence-aware
+hard pseudo-labeling approach significantly outperformed
+entropy minimization and soft-labeling baselines, demon-
+strating that selectively retaining reliable predictions while
+filtering out ambiguous ones is key to preventing error
+accumulation during self-training.
+For future work, we plan to extend the scalability and
+applicability of this framework in three key directions. First,
+as demonstrated in Sec. VI-C, simultaneous failures of mul-
+tiple microphones can violate the geometric constraint (M ≥
+3) required for reliable 2D DOA estimation, imposing a fun-
+damental limitation that cannot be overcome by adaptation
+alone. Addressing this challenge likely requires extending
+beyond single-modality auditory perception toward multi-
+modal approaches—for instance, leveraging complementary
+visual or inertial cues to compensate for the spatial informa-
+tion lost due to microphone failures, thereby enabling robust
+localization even under severe array degradation. Second,
+we intend to apply our fault-resilient paradigm to other
+array-based tasks, such as multi-channel automatic speech
+recognition, to investigate how diagnosis-guided adaptation
+can maintain recognition performance in the presence of
+hardware degradation.
+Third, while the proposed fault diagnosis module achieves
+near-perfect accuracy on the predefined set of fault types
+evaluated in this work, its reliability may degrade when
+confronted with unexpected or out-of-distribution hardware
+failures that were not encountered during training. This is
+an inherent limitation of classification-based fault diagnosis
+approaches, including both the conventional V AD-based
+method [10] and our proposed model, as classification-based
+formulations are fundamentally constrained to recognizing
+fault types seen during training and cannot naturally gener-
+alize to unseen fault patterns. In such cases, an erroneous
+diagnosis could trigger an inappropriate intervention, poten-
+tially compromising localization performance. Although our
+analysis in Sec. VI-B8 demonstrates that even prolonged
+misdetection results in only marginal performance degrada-
+tion, addressing this limitation remains an important open
+challenge that goes beyond the scope of classification-based
+diagnosis alone. Future work should therefore explore more
+probabilistic [47], gradual [48], or reversible interven-
+tion [34] mechanisms that can gracefully handle unseen fault
+conditions without placing absolute trust in the diagnosis
+module’s output.
+REFERENCES
+[1] W. He, P . Motlicek, and J.-M. Odobez, ‘‘Deep neural networks for multiple
+speaker detection and localization,’’ inProc. IEEE Int. Conf. Robot. Autom.
+(ICRA), May 2018, pp. 74–79.
+[2] J. Wang, X. Qian, Z. Pan, M. Zhang, and H. Li, ‘‘GCC-PHA T with speech-
+oriented attention for robotic sound source localization,’’ inProc. IEEE Int.
+Conf. Robot. Autom. (ICRA), May 2021, pp. 5876–5883.
+[3] I. An, G. An, T. Kim, and S.-E. Y oon, ‘‘Microphone pair training for robust
+sound source localization with diverse array configurations,’’ IEEE Robot.
+Autom. Lett., vol. 9, no. 1, pp. 319–326, 2023.
+[4] I. An, Y . Kwon, and S.-E. Y oon, ‘‘Diffraction- and reflection-aware
+multiple sound source localization,’’ IEEE Trans. Robot., vol. 38, no. 3,
+pp. 1925–1944, Jun. 2022.
+[5] I. An, B. Jo, Y . Kwon, J.-W. Choi, and S.-E. Y oon, ‘‘Robust sound source
+localization considering similarity of back-propagation signals,’’ in Proc.
+IEEE Int. Conf. Robot. Autom. (ICRA), May 2020, pp. 1574–1580.
+[6] H. Liu, Z. Zhang, Y . Zhu, and S.-C. Zhu, ‘‘Self-supervised incremental
+learning for sound source localization in complex indoor environment,’’ in
+Proc. Int. Conf. Robot. Autom. (ICRA), May 2019, pp. 2599–2605.
+[7] M. Brandstein and D. Ward, Microphone Arrays: Signal Processing
+Techniques and Applications. Cham, Switzerland: Springer, 2001.
+VOLUME 14, 2026 60591
+
+===== PDF page 24 =====
+
+I. An: Confidence-Aware TTA for Fault-Resilient SSL Guided by Lightweight Diagnosis
+[8] J. Benesty, J. Chen, and Y . Huang, Microphone Array Signal Processing.
+Cham, Switzerland: Springer, 2008.
+[9] B. Rafaely, Fundamentals of Spherical Array Processing, vol. 8. Cham,
+Switzerland: Springer, 2015.
+[10] J. Kim and B.-J. Y ou, ‘‘Fault detection in a microphone array by
+intercorrelation of features in voice activity detection,’’ IEEE Trans. Ind.
+Electron., vol. 58, no. 6, pp. 2568–2571, Jun. 2011.
+[11] M. Uricár, P . Krížek, G. Sistu, and S. Y ogamani, ‘‘SoilingNet: Soiling
+detection on automotive surround-view cameras,’’ in Proc. IEEE Intell.
+Transp. Syst. Conf. (ITSC), Oct. 2019, pp. 67–72.
+[12] H. Ryu, M. Y oon, D. Park, and S.-E. Y oon, ‘‘Confidence-based robot
+navigation under sensor occlusion with deep reinforcement learning,’’ in
+Proc. Int. Conf. Robot. Autom. (ICRA), May 2022, pp. 8231–8237.
+[13] X. Chen, A. Bettens, Z. Xie, Z. Wang, and X. Wu, ‘‘Kalman filter and
+neural network fusion for fault detection and recovery in satellite attitude
+estimation,’’ Acta Astronautica, vol. 217, pp. 48–61, Apr. 2024.
+[14] D. Wang, E. Shelhamer, S. Liu, B. Olshausen, and T. Darrell, ‘‘Tent: Fully
+test-time adaptation by entropy minimization,’’ 2020, arXiv:2006.10726.
+[15] C. Finn, S. Levine, and M. Zhang, ‘‘MEMO: Test time robustness via
+adaptation and augmentation,’’ in Proc. Adv. Neural Inf. Process. Syst.,
+vol. 35, 2022, pp. 38629–38642.
+[16] S. Niu, J. Wu, Y . Zhang, Y . Chen, S. Zheng, P . Zhao, and M. Tan,
+‘‘Efficient test-time model adaptation without forgetting,’’ in Proc. Int.
+Conf. Mach. Learn., 2022, pp. 16888–16905.
+[17] S. Niu, J. Wu, Y . Zhang, Z. Wen, Y . Chen, P . Zhao, and M. Tan,
+‘‘Towards stable test-time adaptation in dynamic wild world,’’ 2023,
+arXiv:2302.12400.
+[18] M. Jang, S.-Y . Chung, and H. W. Chung, ‘‘Test-time adaptation via self-
+training with nearest neighbor information,’’ 2022, arXiv:2207.10792.
+[19] Q. Wang, O. Fink, L. V an Gool, and D. Dai, ‘‘Continual test-time domain
+adaptation,’’ in Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit.
+(CVPR), Jun. 2022, pp. 7201–7211.
+[20] Y . Y u, S. Shin, S. Back, M. Ko, S. Noh, and K. Lee, ‘‘Domain-specific
+block selection and paired-view pseudo-labeling for online test-time
+adaptation,’’ in Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit.
+(CVPR), Jun. 2024, pp. 22723–22732.
+[21] Y . Hu, C. Qiao, X. Geng, and N. Xu, ‘‘Selective label enhancement learning
+for test-time adaptation,’’ in Proc. 13th Int. Conf. Learn. Represent., 2025.
+[Online]. Available: https://openreview.net/forum?id=3Z2flzXzBY
+[22] H. Park, A. Gupta, and A. Wong, ‘‘Test-time adaptation for depth
+completion,’’ in Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit.
+(CVPR), Jun. 2024, pp. 20519–20529.
+[23] J. Y oon, S. Kim, S. Kwak, and M. Cho, ‘‘Optical flow domain adaptation
+via target style transfer,’’ in Proc. IEEE/CVF Winter Conf. Appl. Comput.
+Vis. (WACV), Jan. 2024, pp. 2111–2121.
+[24] Q. Lin, R. Chen, K. Gu, and A. Y ao, ‘‘Semantics-aware test-time adaptation
+for 3D human pose estimation,’’ 2025, arXiv:2502.10724.
+[25] T. Lee, J. Tremblay, V . Blukis, B. Wen, B.-U. Lee, I. Shin, S. Birchfield,
+I. S. Kweon, and K.-J. Y oon, ‘‘TTA-COPE: Test-time adaptation for
+category-level object pose estimation,’’ inProc. IEEE/CVF Conf. Comput.
+Vis. Pattern Recognit. (CVPR), Jun. 2023, pp. 21285–21295.
+[26] D. Su, T. Vidal-Calleja, and J. V . Miro, ‘‘Towards real-time 3D sound
+sources mapping with linear microphone arrays,’’ in Proc. IEEE Int. Conf.
+Robot. Autom. (ICRA), May 2017, pp. 1662–1668.
+[27] L. Fu, Y . He, J. Wang, X. Qiao, and H. Kong, ‘‘I-ASM: Iterative acoustic
+scene mapping for enhanced robot auditory perception in complex indoor
+environments,’’ in Proc. IEEE/RSJ Int. Conf. Intell. Robots Syst. (IROS),
+Oct. 2024, pp. 12318–12323.
+[28] V . V enkatasubramanian, R. Rengaswamy, S. N. Kavuri, and K. Yin,
+‘‘A review of process fault detection and diagnosis: Part III: Process history
+based methods,’’ Comput. Chem. Eng., vol. 27, no. 3, pp. 327–346, 2003.
+[29] S. X. Ding, Model-Based Fault Diagnosis Techniques: Design Schemes,
+Algorithms, and Tools. Cham, Switzerland: Springer, 2008.
+[30] M. Zhao, S. Zhong, X. Fu, B. Tang, and M. Pecht, ‘‘Deep residual
+shrinkage networks for fault diagnosis,’’ IEEE Trans. Ind. Informat.,
+vol. 16, no. 7, pp. 4681–4690, Jul. 2020.
+[31] T. Mezair, Y . Djenouri, A. Belhadi, G. Srivastava, and J. C.-W. Lin,
+‘‘A sustainable deep learning framework for fault detection in 6G industry
+4.0 heterogeneous data environments,’’ Comput. Commun., vol. 187,
+pp. 164–171, Apr. 2022.
+[32] U. Ali, U. Ramzan, W. Ali, and K. A. Al-Jaafari, ‘‘An improved
+fault diagnosis strategy for induction motors using weighted probability
+ensemble deep learning,’’IEEE Access, vol. 13, pp. 106958–106973, 2025.
+[33] H. Ha, S. Han, and J. Lee, ‘‘Fault detection on transmission lines using a
+microphone array and an infrared thermal imaging camera,’’ IEEE Trans.
+Instrum. Meas., vol. 61, no. 1, pp. 267–275, Jan. 2012.
+[34] W. Zhang, H. Zhou, S. Sun, Z. Wang, J. Shi, and C. C. Loy, ‘‘Robust multi-
+modality multi-object tracking,’’ in Proc. IEEE/CVF Int. Conf. Comput.
+Vis., Aug. 2019, pp. 2365–2374.
+[35] S. Cicero, M. Guarascio, A. Guerrieri, S. Mungari, and A. Vinci, ‘‘A deep
+neural framework for fault detection in IoT-based sensor networks,’’ in
+Proc. Int. Conf. Adv. Social Netw. Anal. Mining . Cham, Switzerland:
+Springer, 2024, pp. 129–145.
+[36] G. Zheng, Q. Zhang, and S. Li, ‘‘Failure diagnosis of antenna array
+using residual convolutional neural network,’’ in Proc. Int. Appl. Comput.
+Electromagn. Soc. (ACES-China) Symp., Jul. 2021, pp. 1–2.
+[37] L. A. L. Janssen and I. L. Arteaga, ‘‘Data processing and augmentation of
+acoustic array signals for fault detection with machine learning,’’ J. Sound
+Vibrat., vol. 483, Sep. 2020, Art. no. 115483.
+[38] C. Li, C. Chen, and X. Gu, ‘‘Acoustic-based rolling bearing fault diagnosis
+using a co-prime circular microphone array,’’ Sensors, vol. 23, no. 6,
+p. 3050, Mar. 2023.
+[39] L. Chen, Y .-S. Choy, K.-C. Tam, and C.-W. Fei, ‘‘Hybrid microphone
+array signal processing approach for faulty wheel identification and ground
+impedance estimation in wheel/rail system,’’ Appl. Acoust., vol. 172,
+Jan. 2021, Art. no. 107633.
+[40] B. Zhou, K. Xu, Y . Quan, and M. Xing, ‘‘TransDOA: Calibrating
+array imperfections via transformer-based transfer learning,’’ 2025,
+arXiv:2504.13394.
+[41] C. Knapp and G. Carter, ‘‘The generalized correlation method for
+estimation of time delay,’’ IEEE Trans. Acoust., Speech, Signal Process.,
+vol. ASSP-24, no. 4, pp. 320–327, Aug. 1976.
+[42] S. Adavanne, A. Politis, J. Nikunen, and T. Virtanen, ‘‘Sound event
+localization and detection of overlapping sources using convolutional
+recurrent neural networks,’’ IEEE J. Sel. Topics Signal Process. , vol. 13,
+no. 1, pp. 34–48, Mar. 2019.
+[43] R. A. Marsden, M. Döbler, and B. Y ang, ‘‘Introducing intermediate
+domains for effective self-training during test-time,’’ in Proc. Int. Joint
+Conf. Neural Netw. (IJCNN), Jun. 2024, pp. 1–10.
+[44] R. Scheibler, E. Bezzam, and I. Dokmanic, ‘‘Pyroomacoustics: A Python
+package for audio room simulation and array processing algorithms,’’
+in Proc. IEEE Int. Conf. Acoust., Speech Signal Process. (ICASSP),
+Apr. 2018, pp. 351–355.
+[45] I. Trowitzsch, J. Taghia, Y . Kashef, and K. Obermayer, ‘‘The NIGENS
+general sound events database,’’ 2019, arXiv:1902.08314.
+[46] V . Panayotov, G. Chen, D. Povey, and S. Khudanpur, ‘‘Librispeech: An
+ASR corpus based on public domain audio books,’’ inProc. IEEE Int. Conf.
+Acoust., Speech Signal Process. (ICASSP), Apr. 2015, pp. 5206–5210.
+[47] J. Ren, J. Wen, Z. Zhao, R. Y an, X. Chen, and A. K. Nandi, ‘‘Uncertainty-
+aware deep learning: A promising tool for trustworthy fault diagnosis,’’
+IEEE/CAA J. Autom. Sinica, vol. 11, no. 6, pp. 1317–1330, Jun. 2024.
+[48] Y . Fu and W. Y an, ‘‘One masked model is all you need for sensor fault
+detection, isolation and accommodation,’’ in Proc. Int. Joint Conf. Neural
+Netw. (IJCNN), Jun. 2024, pp. 1–8.
+INKYU AN received the B.S. degree in electronics
+engineering from Dongguk University, in 2016,
+the M.S. degree in robotics program from Korea
+Advanced Institute of Science and Technology
+(KAIST), Daejeon, Republic of Korea, in 2018,
+and the Ph.D. degree from the School of Comput-
+ing, KAIST, in 2023. He was a Researcher with
+the Artificial Intelligence Research Laboratory,
+Electronics and Telecommunications Research
+Institute (ETRI), Daejeon. He is currently an
+Assistant Professor with Kookmin University. His research interests include
+robot audition, e.g., speech separation, sound source localization and
+detection, and sound-aware multimodal embodied artificial intelligence (AI).
+60592 VOLUME 14, 2026

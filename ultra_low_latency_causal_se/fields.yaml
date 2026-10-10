@@ -1,0 +1,69 @@
+field_categories:
+  bibliographic:
+    - name: title
+      description: "Exact title."
+      detail_level: brief
+    - name: authors_year_venue_link
+      description: "Authors, year, peer-review status, venue, DOI or permanent link."
+      detail_level: detailed
+  causality_latency:
+    - name: causality_label
+      description: "One of strict_causal, low_look_ahead, non_causal; include evidence."
+      detail_level: detailed
+    - name: streaming_dependency_certificate
+      description: "For every operator: padding, normalization statistics, cached state, and latest input sample used."
+      detail_level: detailed
+    - name: latency_semantics
+      description: "Sample rate, analysis/synthesis window, hop, chunk, look-ahead, group delay, warm-up and whether latency is algorithmic, compute or end-to-end."
+      detail_level: detailed
+    - name: latency_budget_ledger
+      description: "ADC/DMA, input buffer, feature/front-end, inference p50/p95/p99, output buffer, DAC and deadline misses."
+      detail_level: detailed
+  model:
+    - name: input_representation
+      description: "Waveform, STFT RI/magnitude, filterbank, spatial and auxiliary features."
+      detail_level: detailed
+    - name: architecture_and_state
+      description: "Encoder/decoder, CNN/RNN/attention/SSM, state and receptive field."
+      detail_level: detailed
+    - name: footprint
+      description: "Parameters, MAC/s or FLOPs, peak RAM/SRAM, precision, measured RTF and target hardware."
+      detail_level: detailed
+  data_evaluation:
+    - name: task_target_data
+      description: "Task, target definition, data, sampling rate, SNR and noise/reverb/spatial conditions."
+      detail_level: detailed
+    - name: enhancement_metrics
+      description: "PESQ, STOI/eSTOI, SI-SDR/SI-SNR, DNSMOS SIG/BAK/OVL, with exact test protocol."
+      detail_level: detailed
+    - name: preservation_scorecard
+      description: "False-suppression rate, VAD/SPP calibration, ASR WER, speaker similarity, F0/formant/prosody continuity and listening tests."
+      detail_level: detailed
+    - name: low_snr_stratification
+      description: "Results by -10/-5/0/5 dB, noise type, competing speech, transients, reverb and unseen device/noise."
+      detail_level: detailed
+  deployment:
+    - name: runtime_protocol
+      description: "SoC/DSP/MCU/NPU, runtime/toolchain, batch=1 streaming, warm-up, core affinity, thermal/power settings."
+      detail_level: detailed
+    - name: failure_and_recovery
+      description: "Deadline miss policy, bypass, state reset/recovery, long-stream stability and underrun/overrun."
+      detail_level: detailed
+    - name: compression_realization
+      description: "QAT/PTQ, packed model size, operator support, measured rather than theoretical speedup."
+      detail_level: detailed
+  assessment:
+    - name: two_ms_eligibility
+      description: "Boolean flags: strict_causal, algorithmic_latency_le_2ms, measured_end_to_end_le_2ms."
+      detail_level: detailed
+    - name: speech_preservation_assessment
+      description: "Evidence that weak target speech is retained, not merely that aggregate noise is reduced."
+      detail_level: detailed
+    - name: limitations_and_gap
+      description: "Unreported latency terms, future leakage risks, low-SNR failure modes and practical research gap."
+      detail_level: detailed
+uncertain:
+  - "Whether quoted latency is capture-to-playback rather than algorithmic"
+  - "Target hardware p99 and power/SRAM"
+  - "Exact padding/normalization and future-context leakage"
+  - "Negative-SNR and speech-preservation results when only pooled metrics are published"

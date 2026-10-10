@@ -1,0 +1,912 @@
+                                                                                                                                                                                                                                                            1
+
+                                          Integrating Uncertainty into Neural Network-based
+                                                          Speech Enhancement
+
+                                                                       Huajian Fang , Student Member, IEEE, Dennis Becker ,
+                                                          Stefan Wermter , Member, IEEE, and Timo Gerkmann , Senior Member, IEEE
+
+arXiv:2305.08744v1 [eess.AS] 15 May 2023     Abstract--Supervised masking approaches in the time-frequency                complex Gaussian distributions with zero mean, the well-known
+                                          domain aim to employ deep neural networks to estimate a multiplica-             Wiener filter can be derived. Traditionally, the speech and noise
+                                          tive mask to extract clean speech. This leads to a single estimate for          variances estimated by statistical model-based methods [1], [7] can
+                                          each input without any guarantees or measures of reliability. In this           be used to construct the MMSE-optimal Wiener filter.
+                                          paper, we study the benefits of modeling uncertainty in clean speech es-
+                                          timation. Prediction uncertainty is typically categorized into aleatoric           Recently, neural networks have been widely used in speech
+                                          uncertainty and epistemic uncertainty. The former refers to inherent            enhancement methods due to their flexibility and effectiveness in
+                                          randomness in data, while the latter describes uncertainty in the               nonlinear modeling. Depending on their application, varying degrees
+                                          model parameters. In this work, we propose a framework to jointly               of success are reported [8]-[19]. Specifically, deep neural networks
+                                          model aleatoric and epistemic uncertainties in neural network-based             have been utilized to replace some of the building blocks of conven-
+                                          speech enhancement. The proposed approach captures aleatoric un-                tional speech enhancement methods. For instance, a neural network-
+                                          certainty by estimating the statistical moments of the speech posterior         based speech presence probability estimator has been proposed
+                                          distribution and explicitly incorporates the uncertainty estimate to            in [8] and combined with a single-channel multi-frame approach [9].
+                                          further improve clean speech estimation. For epistemic uncertainty,             In [10], [11], neural networks are employed to estimate speech and
+                                          we investigate two Bayesian deep learning approaches: Monte Carlo               noise power spectrum densities that are required in various Bayesian
+                                          dropout and Deep ensembles to quantify the uncertainty of the neural            estimators. Additionally, recent work has leveraged the probabilistic
+                                          network parameters. Our analyses show that the proposed framework               modeling of generative networks for speech enhancement. For
+                                          promotes capturing practical and reliable uncertainty, while combin-            example, the variational autoencoder (VAE) has been used to
+                                          ing different sources of uncertainties yields more reliable predictive          estimate the clean speech distribution, which is then combined
+                                          uncertainty estimates. Furthermore, we demonstrate the benefits of              with a separate noise model to construct a noise reduction Wiener
+                                          modeling uncertainty on speech enhancement performance by evalu-                filter [12], [14]. The robustness of this filter can be further improved
+                                          ating the framework on different datasets, exhibiting notable improve-          by injecting noise information [16], temporal dependencies [20]-
+                                          ment over comparable models that fail to account for uncertainty.               [22], and information from other modalities, such as vision [17],
+                                                                                                                          [23]. Besides, speech enhancement approaches based on perceptual
+                                             Index Terms--Speech enhancement, Bayesian estimator,                         metric-guided adversarial training [24], [25] and diffusion-based
+                                          uncertainty estimation, deep neural networks                                    generative models [26], [27] have also been presented. In contrast,
+                                                                                                                          supervised masking approaches [18] aim to learn a mapping from
+                                                                    I. INTRODUCTION                                       the noisy input to a masking filter. It allows neural networks to di-
+                                                                                                                          rectly estimate a time-frequency filter by training on a large amount
+                                          Speech recorded in noisy environments is often corrupted by                     of noisy-clean speech pairs using an appropriate cost function [19].
+                                          background noise, which renders it difficult to understand by either            In this work, we focus on supervised masking approaches.
+                                          humans or machines via automatic speech recognition systems.
+                                          These problems call for robust speech enhancement algorithms,                      While the time-frequency noise-removing filter aims to remove
+                                          which extract desired clean speech from noisy mixtures to improve               noise with minimum speech distortions, the algorithm's robustness
+                                          speech quality and intelligibility of recordings. In this paper, we             and reliability are not guaranteed, especially when speech is
+                                          consider single-channel speech enhancement.                                     corrupted by previously unobserved noise. To alleviate this
+                                                                                                                          shortcoming, research has been conducted to investigate how
+                                             Speech enhancement algorithms typically utilize the short-time               to generalize to unseen situations by, e.g., developing more
+                                          Fourier transform (STFT) to transfer the recorded signal into the               sophisticated network architectures, improved features, or including
+                                          time-frequency domain, where multiplicative filters can be applied              more training data that covers a wide variety of acoustic scenarios
+                                          to obtain an estimate of clean speech [1], [2]. Various Bayesian                [28]-[30]. The first is often accompanied by a tremendous increase
+                                          estimators, e.g., maximum a posteriori (MAP) and minimum                        in model parameters, while the latter is rather time-demanding. Still,
+                                          mean squared error (MMSE) estimators, have been developed                       improving the generalization ability of neural networks in unseen
+                                          based on different statistical distributions about speech and noise,            scenarios is an unsolved problem considering the black-box nature
+                                          aiming to restore either the spectral coefficients of the STFT or               of neural networks. It is thus necessary and beneficial to obtain the
+                                          the spectral magnitudes [3]-[6]. Given the assumption that speech               associated uncertainty as an indicator of reliability besides the point
+                                          is degraded by uncorrelated additive noise and that both follow                 estimate, especially when the model is processing out-of-distribution
+                                                                                                                          samples that are insufficiently represented by training data.
+                                             The authors gratefully acknowledge support from the German Research
+                                          Foundation DFG under the project CML (TRR 169) and ahoi.digital.                   In machine learning, predictive uncertainty is typically decom-
+
+                                             The authors are with the Signal Processing (SP) Group, the Knowledge
+                                          Technology (WTM) Group, Department of Informatics, Universita¨t Hamburg,
+                                          22527 Hamburg, Germany (e-mail:{huajian.fang; dennis.becker-1; stefan.wermter;
+                                          timo.gerkmann}@uni-hamburg.de).
+                                                                           2
+
+posed into two categories [31]-[33]: aleatoric uncertainty and epis-       in these output predictions [31], [33]. While the true posterior
+temic uncertainty. The term aleatoric uncertainty is used to describe      network distribution is intractable [42], it can be approximated using
+the uncertainty of an estimate due to the intrinsic randomness of          1) Markov Chain Monte Carlo (MCMC) methods [43], [44], which
+noisy observations. For speech enhancement, it originates from             are sampling-based approaches that construct a Markov Chain with
+the stochastic nature of both speech and noise and is reflected in         the posterior network parameter distribution as its stationary distri-
+the variance of the clean speech posterior predictive distribution.        bution, 2) variational inference [42], [45], [46], which approximates
+Epistemic uncertainty is of different nature: If the parameters of         the true posterior network parameter distribution with a tractable
+a neural network are trained, e.g., using different training data,         variational distribution, and 3) ensemble approaches [36], [47], [48],
+different initialization, or a different number of epochs, different       which were proposed from the frequentist perspective but are consid-
+parameters result. Therefore, also the parameters of a neural network      ered as an approximate Bayesian approach [37], [49]. For instance,
+used to estimate clean speech are uncertain. This uncertainty of the       Gal et al. [42] perform variational inference and interpret the dropout
+parameters is called epistemic uncertainty (also known as model            regularization technique [50] as imposing Bernoulli distributions
+uncertainty). For a general introduction to uncertainty modeling,          on the neural network's weights. This method, referred to as Monte
+readers are suggested to refer to a review article by Hu¨llermeier et      Carlo dropout (MC dropout), provides a set of target estimates from
+al. [31]. Various uncertainty measures have been employed in the           multiple forward passes by activating dropout at inference. This set
+deep regression setting, such as confidence intervals, differential        of predictions can empirically approximate the outcome distribution
+entropy, and variance. Depeweg et al. [34] propose to measure uncer-       for each input sample and allows inference of the variance (i.e.,
+tainty based on the entropy of the predictive distribution, which rep-     epistemic uncertainty). In contrast, Deep ensembles proposed in [36]
+resents the information level of random variables. Pearce et al. [35]      can quantify epistemic uncertainty by training multiple neural
+use confidence intervals (which state how certain the estimate is          networks with random weight initialization [37], [38].
+within a certain range) in a distribution-free setting. In this paper, we
+address uncertainty modeling in a probabilistic way following [33],           Recent studies attempt to consider the uncertainty of epistemic
+[36], [37] and measure the uncertainty in terms of the variance.           nature in, e.g., speech emotion recognition [51], [52] and speech
+                                                                           recognition [53]-[55]. In [51], epistemic uncertainty is captured
+   Aleatoric uncertainty. Due to the stochastic nature of speech           in a speech emotion recognition model for selective prediction,
+and noise, a mapping from noisy speech to clean speech is uncertain        where samples with low confidence (high uncertainty) are rejected.
+as reflected by the posterior predictive distribution of clean speech.     Braun et al. [53] apply a Gaussian distribution to the weights of
+We can model this posterior using a specific conditional distribution,     an end-to-end speech recognition model to capture uncertainty
+such as a Gaussian or a Laplacian [33], [36], [38], and employ a           of neural network parameters, which is then used for parameter
+neural network to directly estimate the statistical moments of this        pruning. In a recent publication [54], epistemic uncertainty is
+distribution. While the predicted mean is the MMSE estimate of             employed to improve the robustness of domain adaptation for
+the target [2], the associated variance can be used to quantify the        speech recognition. However, quantifying epistemic uncertainty in
+data inherent uncertainty, i.e., aleatoric uncertainty [33].               neural network-based speech enhancement remains unexplored.
+
+   Few studies in neural network-based speech enhancement have                Contributions. Capturing overall predictive uncertainty, which
+incorporated the uncertainty of aleatoric nature. Chai et al. propose      reflects both aleatoric and epistemic uncertainties, is challenging,
+to use a generalized Gaussian distribution to model the prediction         especially for deep neural networks, but crucial for an understanding
+error on a logarithmic scale [39]. In [40], a neural network is            of the model's prediction behaviour. In this work, we propose a
+used to estimate the parameters of a Gaussian mixture model,               method that allows capturing aleatoric uncertainty and combining
+which then serves as the basis of an extra statistical model-based         it with epistemic uncertainty approximations to quantify overall
+speech enhancement approach. This results in only a slight                 predictive uncertainty. In the context of neural network-based
+improvement over the baseline optimized with the MMSE criterion.           speech enhancement, to the best of our knowledge, this is the first
+Siniscalchi [41] leverages neural networks to learn a histogram            work to study different sources of uncertainty in a joint framework
+distribution to approximate the conditional target speech distribution,    and provides for systematic analyses.
+which is assumed to be a truncated Gaussian distribution with a
+fixed variance in each frequency band. However, the fixed variance            We follow the complex Gaussian speech-plus-noise assumption
+does not help to capture data-dependent uncertainty.                       and propose to train a neural network to estimate the Wiener filter
+                                                                           and its variance, which quantifies aleatoic uncertainty, based on
+   Epistemic uncertainty. Estimating the statistical moments of the        the MAP inference of complex spectral coefficients. To regularize
+speech posterior predictive distribution allows capturing aleatoric        the variance estimation, we build an approximate MAP (AMAP)
+uncertainty, but fails to account for epistemic uncertainty, which cor-    estimator of spectral magnitudes using the estimated Wiener filter
+responds to the uncertainty in neural network parameters [31]-[33].        (mean of the complex clean speech posterior predictive distribution)
+Epistemic uncertainty can be captured using Bayesian inference             and uncertainty (variance of the complex clean speech posterior
+approaches, which instead of modeling the parameters of a neural           distribution) explicitly. The resulting AMAP estimator is in turn
+network as deterministic values, place a distribution over the network     used in conjunction with the MAP inference of complex spectral
+parameters and estimates the posterior distribution of the stochastic      coefficients to form a novel hybrid loss function. Rather than
+network parameters [33]. By sampling from the posterior network            discarding uncertainty information at inference, the proposed
+parameter distribution, multiple sets of neural network parameter          scheme allows us to explicitly incorporate aleatoric uncertainty
+realizations can be obtained, thus producing multiple output pre-          approximations into clean speech estimation in a principled way
+dictions for each input sample. Uncertainty in predictions due to          to further correct erroneous speech estimates.
+epistemic uncertainty can be empirically quantified by the variance
+                                                                              Previous studies on modeling epistemic uncertainty have
+                                                                                                                                                         3
+
+focused on other tasks than speech enhancement, e.g., [38],            With the likelihood in (3) and the prior in (2), we can apply Bayes'
+[51]-[56]. Yet, questions such as how reliable and accurate the        theorem to obtain the posterior distribution of clean speech as a
+estimates of epistemic uncertainty are in speech enhancement,          complex Gaussian of the form [2]:
+and how modeling epistemic uncertainty affects enhancement
+performance, have not been addressed. To this end, we investigate                                    1         |Sft -WfWtFXft|2                 , (4)
+two Bayesian deep learning techniques: MC dropout [42] and                        p(Sft|Xft)= exp -
+Deep ensembles [36] to capture epistemic uncertainty in clean                                     ft                        f t
+speech estimation due to their efficiency in approximating Bayesian
+inference. Although previous works have explored ensemble-based                   WF s,ft 2                                 2s,f t2n,f t                 (5)
+speech enhancement methods [57], [58], they did not investigate the               Wft = 2                 2 , ft = 2                     2.
+effectiveness of ensemble-based methods for uncertainty estimation.                           s,ft +n,ft                   s,ft +n,ft
+
+   Moreover, we propose to estimate overall predictive uncertainty     W WF   is  recognized  as  the  Wiener  filter  and  f  t  is  the  variance  of  the
+reflecting both aleatoric and epistemic uncertainties by combining
+the proposed hybrid loss function with the ensemble-based method.         ft
+Finally, we present a comprehensive analysis of uncertainty from       posterior distribution. Under this assumption, the MMSE estimator,
+different sources and show their impacts on speech enhancement         which corresponds to the expectation of the posterior distribution,
+performance over different datasets, which we hope lays the            leads to the Wiener filter applied as:
+foundation for further use of uncertainties.
+                                                                                                     Sft = WfWtF ·Xft.                                   (6)
+   This paper extends our previous conference publication [59],
+which studied aleatoric uncertainty. Here, we propose to additionally  Due to the symmetry of the complex Gaussian distribution, the
+capture epistemic uncertainty and combine them to quantify overall     MAP estimator of complex speech coefficients is identical to the
+predictive uncertainty in clean speech estimation. Furthermore,        MMSE estimator.
+we provide a more detailed analysis with respect to uncertainty
+estimates from different sources in a joint framework. Section II                III. ALEATORIC UNCERTAINTY ESTIMATION
+describes the signal model. In Section III, we propose to estimate     Although speech enhancement is typically formulated as a problem
+the uncertainty of aleatoric nature following the complex Gaussian-    with a single output, the dependency between input and output can
+distributed speech posterior and present how this uncertainty can be   be modeled stochastically by means of a speech posterior predictive
+incorporated into clean speech estimation. In Section IV, we show      distribution p(Sft|Xft), i.e., a variance ft is associated with
+how to capture epistemic uncertainty and quantify overall predictive   the clean speech estimate and can be interpreted as a measure of
+uncertainty that combines different sources of uncertainty. We         uncertainty of the Wiener estimate [2]. This uncertainty accounts for
+introduce the experimental setting in Section V, analyze uncertainty   random effects in data and is referred to as aleatoric uncertainty [33],
+estimates in Section VI, and present enhancement performance           [36]. When properly captured, aleatoric uncertainty can reflect the
+in Section VII. Section VIII summarizes the findings.                  expected estimation error in the absence of ground truth.
+
+                                                                       A. Deep Aleatoric Uncertainty Estimation
+
+                                                                       In contrast to traditional signal processing techniques [1], [2], [60],
+                                                                       where the Wiener filter is constructed by separately estimating the
+                                                                       variances of speech and noise from the noisy mixture Xft, neural
+                          II. SIGNAL MODEL                             network-based supervised masking methods allow direct estimation
+In the single-channel speech enhancement problem, the noisy            of  multiplicative  filters.  Besides   the  Wiener     filter    W WF,  one  can
+mixture consists of clean speech and additive noise. We apply the
+STFT to obtain the representation in the time-frequency domain as:                                                                          ft
+                                                                       further estimate the data-dependent aleatoric uncertainty ft if the
+                                                                       neural network is optimized using the speech posterior predictive
+                                                                       distribution (4), i.e., by minimizing the negative logarithm of the
+Xft = Sft+Nft,                       (1)                               posterior distribution of clean speech p(Sft|Xft) (the logarithm
+
+where Xft, Sft, and Nft represent the complex spectral coefficients    does not affect the optimization problem due to monotonicity) and
+of mixture, speech, and noise, at the time frame t{1,2,···,T } and     averaging over time-frequency bins:
+the frequency bin f  {1,2,···,F }. T and F denote the number of
+time frames and frequency bins respectively. The objective is to                      WF
+recover clean speech in the time-frequency domain by applying
+a multiplicative filter. To derive such a filter, various assumptions             Wft ,ft =
+are made according to different signal characteristics. By assuming
+that the speech and noise coefficients are uncorrelated and follow                argmin      1        log(ft)+     |Sft -WfWtFXft|2         ,           (7)
+a circularly symmetric complex Gaussian distribution,
+                                                                                  Wft WF,ft F T f,t ft
+
+                                                                                                               Lp(S|X)
+
+Sft  NC(0,s2,ft), Nft  NC(0,n2,ft),  (2)                               where  W WF,  f t      denote      estimates    of   the   Wiener     filter  and
+
+                                                                                 ft
+                                                                       associated aleatoric uncertainty [33], [36].
+                                                                           In contrast, if we assume a constant uncertainty for all time-
+where 2s,ft and 2n,ft represent the variances of speech and noise      frequency bins, i.e., ft =, and refrain from explicitly optimizing
+respectively, the likelihood p(Xft|Sft) follows a complex Gaussian     for , Lp(S|X) degenerates into the well-known mean squared
+distribution with mean Sft and variance 2n,ft, given by                error (MSE) loss
+
+p(Xft|Sft)= 21 exp - 2 |Xft-Sft| . 2 (3)                                                               1                WF            2                  (8)
+                                                                                     LMSE =                    |Sft-Wft Xft| ,
+n,f t           n,f t                                                                             FT
+                                                                                                          f,t
+                                                                                                                                                                                                   4
+
+               Noisy speech                             W WF
+
+                        X                  |X|    DNN                             AMAP  W AMAP                                             |S|
+
+                                  |·|
+
+                                                                                                                                      iSTFT                          Trainable
+
+                                                        Lp(S|X)                                                                       LSI-SDR                        Non-trainable
+                                                                                                                                                                     Loss terms
+
+                           Fig. 1: Block diagram of the proposed neural network-based aleatoric uncertainty estimation.
+
+which is widely used in neural network-based regression tasks                           where I0 (·) is the modified zeroth-order Bessel function of the first
+including speech enhancement [19]. However, neural networks                             kind.
+trained to perform point estimation do not necessarily output reliable
+estimates for clean speech when processing out-of-distribution                             In order to compute the MAP estimate for the spectral magnitude,
+samples that are underrepresented by the training data [28]. In this                    the mode of the Rician distribution has to be estimated, which is
+work, we discard the assumption of constant uncertainty; instead,                       difficult to do analytically. However, it can be approximated by
+we propose to treat uncertainty estimation as an additional task by                     substituting a Bessel function approximation following [64] into (9)
+training a neural network with the negative log speech posterior                        and maximizing with respect to the spectral magnitude, yielding
+Lp(S|X). Consequently, this method not only allows us to obtain                         a simple closed-form expression [2], [4]:
+a noise-removing mask, but also empowers the model to capture
+the uncertainty of aleatoric nature associated with predictions.                              |Sft|  WfAtMAP|Xft|
+                                                                                                                                                                                  
+   Modeling aleatoric uncertainty by minimizing the logarithm of
+the posterior predictive distribution results in an improvement over                              = 1 W WF+                                             1 WF 2 ft               2 |Xft|,         (10)
+baselines that fail to account for uncertainty in computer vision                                      2 ft                                                Wft +
+tasks [33]. However, directly using Lp(S|X) as the loss function                                                                                        2                 4|Xft|
+is prone to overfitting [59] and may result in reduced estimation
+performance of the Wiener filter. A recent publication [61] also                        where |Sft| is an estimate of the clean spectral magnitude |Sft|
+reveals that directly minimizing the logarithm of the conditional                       using     the  AMAP                                 estimator      of  spectral   magnitudes      W AMAP.  It
+probability hinders the training of mean estimation, which leads                                                                                               W AMAP
+to premature convergence. To tackle this problem, we propose an                         can       noticed                                                                                    ft
+additional regularization of the loss function by incorporating the                           be                                      that    the  estimator      ft      utilizes  both  the  Wiener
+estimated uncertainty into clean speech estimation as described next.                           W WF
+                                                                                        filter         and                            the     associated       uncertainty  ft.   Fig.   2  illustrates
+                                                                                                   ft
+                                                                                        the input-output estimation characteristics of the AMAP estimator
+                                                                                        and   Wiener   filter                              [2].  We  can   see  that  W AMAP      is             with
+                                                                                                                                                                                      nonlinear
+                                                                                                                                                                         ft
+                                                                                        respect to the noisy input and tends to cause less target attenuation
+                                                                                        than the Wiener filter especially for low inputs. This indicates
+                                                                                        that incorporating the associated uncertainty ft may increase the
+B. Joint Enhancement and Uncertainty Estimation
+
+Estimating uncertainty ft associated with the Wiener filter is                          robustness of the estimator by potentially preserving more speech
+                                                                                        at the slight cost of noise removal.
+challenging since ground truth of uncertainty is not readily available.
+Instead, uncertainty estimation is an unsupervised task with an
+unspecified search space, which can potentially lead to unstable                          After combining the estimated magnitude |Sft| with the noisy
+training [62], [63]. In this work, we propose to incorporate a                          phase, we can apply the inverse STFT to obtain an estimate of the
+subsequent speech enhancement task that explicitly uses both the                        time-domain speech signal, denoted as s. Afterwards, the estimated
+Wiener filter and its uncertainty ft during the training procedure.                     time-domain signal is used to compute the negative scale-invariant
+
+The speech enhancement task provides additional coupling between                                                                      2.0
+the outputs (Wiener filter and uncertainty). In this manner, the
+                                                                                                       Magnitude of estimated speech                 AMAP
+
+neural network is guided to estimate the uncertainty values that are                                                                                 Wiener filter
+
+relevant to the speech enhancement task, as well as to enhance the                                                                    1.5
+
+estimation of the Wiener filter.
+Considering complex coefficients with a symmetric posterior (4),
+the MAP and MMSE estimators both lead directly to the Wiener                                                                          1.0
+
+filter  W WF   and  do  not  require   an  uncertainty  estimate.  However,                                                           0.5
+
+           ft
+this situation changes if we consider spectral magnitude estimation.
+The magnitude posterior p(|Sft||Xft), derived by integrating the
+phase out of (4), follows a Rician distribution [4]
+                                                                                                                                      0.0
+
+                                                                                                                                           0         1          2           3         4
+p(|Sf t||Xf t) =                                                                                                                                 Magnitude of noisy mixture
+
+                        2    WF 2          2                               WF     (9)
+2|Sft|         |Sft| +(Wft ) |Xft|                                                      Fig.  2:  Input-output                                characteristics  of    the  AMAP    estimator  W AMAP
+        exp -                                 I0  2|Xft||Sft|Wft               ,
+                                                                                                                                                                                                ft
+f t                          f t                        f t                             and   Wiener   filter                         W WF         (setting  2s,f t  = 2n,ft      in  this  example).
+                                                                                                                                                                              =1
+                                                                                                                                         ft
+                                                                                                            5
+
+signal-to-distortion ratio (SI-SDR) metric [65]:                            We define a neural network as a function parameterized by
+                                                                           and a training dataset that contains noisy-clean speech pairs
+        LSI-SDR =-10log10 ||s-s||2 ||s|| , = ||s||2 , 2 sT s (11)         D = {(S11,X11),...,(SFT ,XFT )}. Hereafter we omit the indices
+                                                                          ft, since all time-frequency bins are treated independently in (4).
+which is leveraged as an additional term in the loss function that        Since the posterior network parameter distribution p(|D) is
+forces  the  speech  estimate  (computed  with  W AMAP)  to  be  similar  computationally intractable in a high dimensional space, variational
+                                                                          inference approximates the true posterior network parameter
+                                                   ft                     distribution by a pre-specified variational distribution q() and the
+to the time-domain clean speech target s. While a spectrum loss           speech posterior predictive distribution at inference time is obtained
+like (8) is a straightforward solution to regularize the uncertainty      by marginalizing out q() as:
+estimation, the time-domain loss is expected to be more effective
+since it is directly related to the raw waveform, implicitly taking
+phase information into account and thus promoting speech
+reconstruction for better perceptual performance [66].
+                                                                                     p(S|X,D)= p(S|X,)p(|D)d
+  Eventually, we propose to combine the SI-SDR loss LSI-SDR with
+the negative log-posterior Lp(S|X) given in (7), and train the neural                                1 M (13)
+network using a hybrid loss function                                                              M p(S|X,m), m q(),
+
+             L = Lp(S|X)+(1-)LSI-SDR,                            (12)                                                m=1
+
+with the weighting factor  [0,1]. By explicitly using the estimated       where m represents m-th sampling from q() [67]. MC dropout
+uncertainty for the speech enhancement task, the hybrid loss guides       approximates the posterior network parameter distribution using
+both mean and variance estimation to improve speech enhancement           the Bernoulli distribution and samples neural network weights by
+performance. Fig. 1 depicts a block diagram of this approach.             activating dropout at inference time. Gal et al. provide further details
+                                                                          on the derivations in [42]. This allows obtaining M target speech
+            IV. BAYESIAN UNCERTAINTY ESTIMATION                           estimates from multiple stochastic forward passes for each input.
+While neural networks performing point estimation have                    In contrast, Deep ensembles repeatedly train the same model M
+demonstrated effectiveness in speech enhancement, it is not               times with random initialization and random data shuffling [36],
+guaranteed that neural networks can generalize well to unfamiliar         generating M neural networks with deterministic network parameter
+acoustic situations. Therefore, to quantify the overall predictive        estimates {m}m m==M 1 . Since m can be viewed as independent sam-
+confidence regarding the estimated clean speech, it is necessary to       ples from a certain approximate distribution q(), Deep ensembles
+also assess the uncertainty of the neural network parameters (i.e.,       can be considered equivalent to approximate Bayesian inference [37].
+epistemic uncertainty). Note that a single neural network optimized       Therefore, the predictive distribution is obtained similarly to (13).
+using the proposed hybrid loss (12) allows capturing aleatoric            Furthermore, neural networks usually contain a large number of
+uncertainty but is unaware of epistemic uncertainty. To solve this,       parameters, which makes them multi-modal in the parameter space.
+we can utilize Bayesian deep learning approaches, assuming that           Different initialization starting points in Deep ensembles allow the
+the weights of a neural network follow some probability distribution      neural network to converge to different local optima, thus potentially
+rather than deterministic values. Furthermore, when combined with         capturing multiple modes of p(|D) [37], [48].
+the loss (12), an ensemble of networks can provide both aleatoric
+uncertainty and epistemic uncertainty estimates.                             Epistemic uncertainty can be approximated by building an ensem-
+                                                                          ble of neural networks using either MC dropout or Deep ensembles,
+A. Epistemic Uncertainty Estimation                                       where each network is trained to estimate the Wiener filter only with
+Bayesian deep learning provides a set of principled methods to            the loss function LMSE (8). With the results of M forward passes, we
+capture epistemic uncertainty [36], [42]-[44], [46], [48]. Early work     can approximate the mean and variance of the distribution p(S|X)
+on MCMC methods [43], [44] constructs a Markov chain with the             by the empirical mean and variance of the prediction set [38], [42]:
+posterior network parameter distribution as its stationary distribution
+and generates multiple network parameter realizations by sampling              1M             1  M
+from this distribution. However, MCMC methods are computation-
+ally inefficient and do not scale well to neural networks with a large    S = M Sm, = M |Sm -S| , (14)   2
+number of parameters [37], [38]. Recent work based on variational
+inference allows approximating the true posterior network parameter            m=1               m=1
+distribution with a tractable distribution [45], [46], while at the
+same time ensemble-based methods are proposed as simple and               where Sm denotes clean speech estimated using the neural network
+scalable frequentist alternatives to model uncertainty [36], [47], [48].  with parameters m. S represents the average clean speech estimate
+Among the existing Bayesian deep learning methods, MC dropout             and  quantifies the epistemic uncertainty.
+and Deep ensembles have shown their scalability in large neural
+network-based problems, such as semantic segmentation [33] and            B. Overall Predictive Uncertainty
+depth estimation [37]. Here, we investigate their effectiveness for       In the case of optimizing the network using (12), besides the Wiener
+uncertainty estimation in speech enhancement.                             estimate Sm, each neural network with weights m can produce
+                                                                          the associated variance m. The overall predictive uncertainty,
+                                                                          which reflects both aleatoric and epistemic uncertainties, can be
+                                                                          computed using the law of total variance [33], [38]:
+
+                                                                          1M        1    M
+
+                                                                          S = M Sm, = M          |Sm -S| +m , (15)2
+
+                                                                          m=1            m=1
+                                                                                   6
+
+where S denotes the average Wiener estimate, and  quantifies the                      The noisy-clean speech pairs have a sampling rate of 16 kHz,
+overall predictive uncertainty.                                                    and the STFT is computed using a 32 ms Hann window with 50%
+                                                                                   overlap.
+   For each neural network with weights m, we can further
+generate the AMAP clean speech estimate Sm by explicitly                           C. Methods
+incorporating the associated uncertainty m as in (10). Therefore,                  The algorithms considered in this work include:
+given an ensemble of networks, besides the average Wiener estimate
+S, the average AMAP estimate can be obtained by:                                      1) Baseline WF: The U-Net architecture was trained on noisy-
+                                                                                          clean speech pairs using loss function (8). This serves as a
+S=  1M  Sm .  (16)                                                                        baseline, assuming a constant variance for all time-frequency
+                                                                                          bins and estimating the Wiener filter for each input only.
+    M  m=1
+                                                                                      2) Baseline SI-SDR: Following the same constant variance
+                    V. EXPERIMENTAL SETTING                                               assumption as Baseline WF, the U-Net network was trained
+A. Datasets                                                                               to output a multiplicative filter and optimized using the
+For training and validation, we use a subset of the Deep Noise                            time-domain loss function (11). This serves as another
+Suppression (DNS) Challenge's training set [68], which contains                           baseline that fails to account for uncertainty.
+synthetic audio samples of 100 hours with signal-to-noise ratios
+(SNRs) uniformly distributed between -5 dB and 20 dB. The dataset                     3) Aleatoric-WF & Aleatoric-AMAP: The hybrid loss func-
+is randomly split into 80 and 20 hours for training and validation                        tion (12) allows us to generate two possible clean estimates
+respectively. The model is evaluated on two different unseen                              for each input, i.e., by using the estimated Wiener filter (6)
+datasets. The first is the reverb-free synthetic test set released by                     or by applying the AMAP estimator (10) that incorporates
+DNS Challenge. This evaluation dataset is disjoint from the training                      both the Wiener filter and its associated uncertainty. They are
+and validation datasets and is created by adding noise signals                            denoted as Aleatoric-WF and Aleatoric-AMAP respectively.
+sampled from 12 categories [68] to speech signals from [69] at                            We observe experimentally that the performance of Aleatoric-
+SNRs distributed between 0 dB and 25 dB [68]. The second unseen                           AMAP only fluctuates slightly with different  values,
+evaluation dataset is created using clean speech from the evaluation                      while the performance of Aleatoric-WF decreases when the
+subset of WSJ0 (si_et_05) [70] and four types of noise from                               value of  is large. The weighting factor  was empirically
+CHiME3 (cafe, street, pedestrian, and bus) [71]. The                                      chosen to be 0.001 to achieve a good trade-off between the
+SNRs are randomly selected from {-10 dB, -5 dB, 0 dB, 5 dB,                               performance of Aletoric-WF and Aleaotirc-AMAP.
+10 dB}.
+                                                                                      4) MC dropout: Inserting dropout after each convolution layer
+B. Architecture and Hyperparameters                                                       regularizes too strongly and impacts the model perfor-
+To ensure a fair comparison, all experiments are performed based on                       mance [56], which was confirmed in our preliminary ex-
+the same U-Net neural network architecture [72], [73]. The U-Net                          periments. We thus studied several variants of the U-Net
+structure with skip connections between the encoder and the decoder                       by inserting the dropout layer at different positions of the
+is comprised of several blocks, each of which consists of: 2D convo-                      architecture, and selected the variant with three dropout lay-
+lution layer + instance normalization [74] + Leaky ReLU with slope                        ers (drop probability of 0.5 [37], [50], [56]) inserted after the
+0.2. The encoder contains 6 blocks that increase the feature channel                      three deepest blocks of the encoder. The same cost function
+from 1 to 512 progressively (1-16-32-64-128-256-512),                                     as Baseline WF is used. This method captures epistemic
+while the decoder reduces it back to 16 (512 - 256 - 128 - 64 -                           uncertainty by activating the dropout layers at inference.
+32-16-16), followed by a 1×1 convolution layer that outputs a
+mask of the same shape as the input. For all blocks, the kernel size                  5) Deep ensembles: The same setup as Baseline WF was trained
+is set to (5,5) with stride (1,2) and padding (2,2), processing a 2-D                     M times with random initialization. This allows the model
+input with a dimension of (T,F ). For the model estimating aleatoric                      to capture epistemic uncertainty.
+uncertainty, the output layer is split into two heads that predict both
+the Wiener filter and associated uncertainty1. We applied the sigmoid                 6) DE-Aleatoric-WF & DE-Aleatoric-AMAP: The same setup
+activation function to the estimated Wiener filter, while using the log-                  as Aleatoric-WF/AMAP was trained M times with random
+exp technique to constrain the uncertainty output to be greater than 0,                   intialiation. This allows capturing aleatoric and epistemic un-
+i.e., the network outputs the logarithm of the variance, which is then                    certainties simultaneously. We average over the estimates ac-
+recovered by the exponential term in the loss function. The batch                         cording to (15) and (16) to obtain two clean speech estimates:
+size is 64; the learning rate is 0.001; the weight decay parameter                        DE-Aleatoric-WF and DE-Aleatoric-AMAP respectively.
+is set to 0.0005. All neural networks are trained with the Adam
+optimizer [75]. The training process is stopped if the validation loss                      VI. ANALYSIS OF UNCERTAINTY ESTIMATION
+fails to decrease for 10 consecutive epochs and the learning rate is               In this section, we introduce the evaluation metrics for uncertainty
+halved when the validation loss does not decrease for 3 epochs.                    and then analyze the captured aleatoric and epistemic uncertainties.
+                                                                                   Finally, we show that combining two types of uncertainty yields
+   1Code for the model is available at: https://github.com/sp-uhh/uncertainty-SE.  more reliable predictive uncertainty.
+
+                                                                                   A. Uncertainty Evaluation Metrics
+                                                                                   To evaluate the captured uncertainty, the sparsification plot and
+                                                                                   the sparsification error are used as evaluation metrics [37], [38],
+                                                                                                                                                                7
+
+                                  (a) Noisy                         (b) Clean                   1 RMSE (normalized)       Oracle Aleatoric
+                8000                               8000                                                                   Aleatoric uncertainty
+                                                                               -10 dB
+Frequency (Hz)  6000                               6000
+                                                                                               0.8
+                4000                               4000
+                                                                               -20 dB
+                2000                               2000
+                                                                                               0.6
+                   00 1.5 3 4.5 6 7.5 9               00 1.5 3 4.5 6 7.5 9
+                             (c) Aleatoric-WF                       (d) Error  -30 dB
+
+                8000                               8000                        -40 dB 0.4
+
+                6000                               6000                        -50 dB                                0.2
+
+                4000                               4000                                                              0
+                                                                                                                        0 0.2 0.4 0.6 0.8 1
+                2000                               2000
+                                                                                                                       Fraction of removed time-frequency bins
+
+Frequency (Hz)                                                                 Fig. 4: Sparsification plot of aleatoric uncertainty ~ evaluated on
+                                                                               the DNS test dataset. The dashed line denotes the lower bound of
+                                                                               the sparsification plot of aleatoric uncertainty. A smaller distance of
+                                                                               the sparsification plot to the oracle curve indicates a more accurate
+                                                                               uncertainty estimation.
+
+                   00 1.5 3 4.5 6 7.5 9               00  1.5 3 4.5 6 7.5 9    example from the DNS challenge test set is selected to illustrate
+                        (e) Aleatoric uncertainty  8000    (f) Aleatoric-AMAP  the effectiveness of the proposed optimization metric in modeling
+                                                                               uncertainty. Aleatoric-WF in Fig. 3 (c) shows the spectrogram of
+                8000                                                           the clean speech obtained by applying the estimated Wiener filter.
+                                                                               By computing the absolute square between the clean reference and
+Frequency (Hz)  6000                               6000                        estimated spectral coefficients, we can obtain the estimation error as
+                                                                               depicted in Fig. 3 (d). It can be observed that large errors occur when
+                4000                               4000                        the speech is heavily disturbed by noise, as in the region marked
+                                                                               by the green box, while for inputs with less distortion, such as the
+                2000                               2000                        first three seconds, the model produces smaller errors. Meanwhile,
+                                                                               the proposed loss function enables the estimation of uncertainty
+                00 1.5 3 4.5 6 7.5 9               00 1.5 3 4.5 6 7.5 9        associated with the Wiener filter, as shown in Fig. 3 (e), denoted
+                                                                               as aleatoric uncertainty. It shows that aleatoric uncertainty prevails
+                             Time (s)                           Time (s)       in speech presence regions. By relating Fig. 3 (d) to Fig. 3 (e),
+                                                                               the model outputs relatively large uncertainty (e.g., the green
+Fig. 3: Aleatoric uncertainty (shown in (e)) captured by the proposed          box-marked part) when large errors are produced. This suggests
+loss function (12) for an excerpt from the DNS test dataset. The               that the neural network is able to produce reasonable uncertainty
+uncertainty is visualized as a heatmap. The black color indicates low          estimates when dealing with complex unseen inputs. Furthermore,
+uncertainty, whereas the brighter color indicates higher uncertainty.          we can incorporate the estimated uncertainty into clean speech
+                                                                               inference, as in (10), which leads to a clean speech estimate shown
+[76]. The sparsification plot illustrates the correlation between the          in Fig. 3 (f), denoted as Aleatoric-AMAP. It is observed that more
+uncertainty measure and the true error. The error of a time-frequency          speech is preserved than Aleatoric-WF in the highly-uncertain green
+bin is defined as the absolute square between the estimated spectral           box-marked region at some cost of noise reduction, i.e., Aleatoric-
+coefficient and the ground-truth. For this plot, the errors in the time-       AMAP leads to less speech distortion with a slight tendency of
+frequency domain are first sorted according to their corresponding             retaining more noise. The reason for this is that with reliable
+uncertainty measures. The residual error should gradually decrease             uncertainty estimates, Aleatoric-AMAP can increase the estimator's
+when the time-frequency bins with large uncertainties are removed.             value in (10) under high uncertainty (as the AMAP estimator's
+This leads to a plot of the root mean squared error (RMSE) versus              value is positively correlated with the uncertainty estimate when
+the fraction of removed time-frequency bins. Normalization is ap-              other terms are fixed), thus causing less target attenuation.
+plied to ensure that the plot is initialized at 1. The best ordering of un-
+certainty measures is determined by ranking the true errors [38], [76].           Besides the qualitative analysis, we can associate the captured
+This provides a lower bound of each sparsification plot, denoted as            uncertainty with the corresponding prediction errors on the
+the oracle curve, i.e., when the uncertainty estimates and errors are          time-frequency bin scale and use sparsification plots to analyze
+perfectly correlated, the sparsification plot and the oracle curve coin-       the reliability of the uncertainty estimates. The sparsification plot
+cide. The sparsficiation error is computed as the difference between           shown in Fig. 4 is computed based on all audio samples in the DNS
+the sparsification plot and the corresponding oracle curve, and the            reverb-free test dataset. We observe a rapid decrease at the beginning
+area under the sparsification error (AUSE) curve provides a single             in Fig. 4, implying that large errors come with large uncertainty
+value that enables comparison of different uncertainty modeling tech-          estimates. By removing 20 percent of time-frequency bins with
+niques. A lower AUSE value (i.e., the closer the sparsification plot is        high uncertainty (i.e., 0.2 in the horizontal axis), the RMSE value
+to its oracle curve) indicates a more accurate estimate of uncertainty.        drops by around two-thirds. Thus, the monotonically decreasing
+                                                                               sparsification plot in Fig. 4 again suggests that the predicted aleatoric
+B. Analysis of Aleatoric Uncertainty Estimation
+In this part, we analyze the captured data-dependent aleatoric
+uncertainty associated with the Wiener estimate. For this, an audio
+                                                                                                                                                         8
+
+                      (a) Estimate (MC dropout)          (b) Estimate (DE)                                 1               Oracle M = 2
+
+                8000                               8000
+
+                                                                                                                           MC M = 2
+
+Frequency (Hz)  6000                               6000                                 RMSE (normalized)  0.8 MC M = 4 Oracle M = 4
+
+                                                                                                                           Oracle M = 8
+
+                4000                               4000                                                    0.6             MC M = 8
+
+                                                                                                                           Oracle M = 16
+
+                                                                                                                           MC M = 16
+
+                2000                               2000                                                    0.4             Oracle M = 32
+
+                                                                                                                           MC M = 32
+
+                   00 1.5 3 4.5 6 7.5 9               00 1.5 3 4.5 6 7.5 9                                 0.2
+                           (c) Error (MC dropout)                 (d) Error (DE)
+                                                                                                           0
+                8000                               8000                                                       0 0.2 0.4 0.6 0.8 1
+                                                                                                                Fraction of removed time-frequency bins
+Frequency (Hz)  6000                               6000
+                                                                                                            (a) Sparsification plot of MC dropout (MC)
+
+                4000                               4000                                                    1
+
+                                                                                                                           Oracle M = 2
+
+                                                                                                                           DE M = 2
+
+                2000                               2000                                 RMSE (normalized)  0.8             Oracle M = 4
+
+                                                                                                                           DE M = 4
+
+     00 1.5 3 4.5 6 7.5 9                             00 1.5 3 4.5 6 7.5 9                                                 Oracle M = 8
+(e) Epistemic uncertainty (MC dropout)                  (f) Epistemic uncertainty (DE)
+                                                                                                           0.6             DE M = 8
+ 8000                                              8000
+                                                                                                                           Oracle M = 16
+
+                                                                                                           0.4             DE M = 16
+
+                                                                                                                           Oracle M = 32
+
+                6000                               6000                                                                    DE M = 32
+
+Frequency (Hz)                                                                                             0.2
+
+                4000                               4000                                               0
+                                                                                                          0 0.2 0.4 0.6 0.8 1
+                2000                               2000                                                   Fraction of removed time-frequency bins
+
+                00 1.5 3 4.5 6 7.5 9               00 1.5 3 4.5 6 7.5 9                                (b) Sparsification plot of Deep ensembles (DE)
+
+                             Time (s)                           Time (s)                Fig. 6: Sparsification plots of epistemic uncertainty  for the
+                                                                                        DNS test dataset. The dashed line denotes the lower bound of the
+Fig. 5: The same excerpt as in Fig. 3 illustrates the captured                          corresponding sparsification plot, denoted as Oracle M. A smaller
+epistemic uncertainty obtained by applying Bayesian deep learning                       distance of the sparsification plot to the oracle curve indicates a
+methods (M =16). Estimate (MC dropout) and Estimate (DE) repre-                         more accurate uncertainty estimation. Note that all oracle curves
+sent clean speech estimated using MC dropout and Deep ensembles.                        are visually overlapping.
+
+uncertainty measurement is closely related to the estimation error.
+
+                                                                                                                 0.25  DE
+
+C. Analysis of Epistemic Uncertainty Estimation                                                                        MC dropout
+
+Next, we ignore aleatoric uncertainty and analyze separately                                               AUSE  0.20
+epistemic uncertainty in the model parameters. For this, the neural
+networks are trained to perform only point estimation, i.e., trained                                             0.15
+with the loss function (8). An ensemble of models is collected
+by applying Deep ensembles or MC dropout to approximate the                                             0.10
+predictive mean and variance.
+                                                                                                              2 4 8 16 32
+   In Fig. 5, we present the same audio example as in Fig. 3 to                                                                M
+illustrate the uncertainty measures based on MC dropout and Deep
+ensembles. MC dropout and Deep ensembles provide the clean                              Fig. 7: AUSE for the DNS test dataset. AUSE is plotted relative
+speech estimates as shown in the first row of Fig. 5. The estimation                    to a different number of forward passes M. The markers denote the
+error for each method is obtained similarly by calculating the ab-                      mean and the vertical bars indicate the standard deviation. Lower
+solute square between the estimated and clean spectral coefficients,                    values indicate a smaller deviation from the oracle curve, and thus
+shown in the second row. As can be observed, both methods produce                       more reliable uncertainty estimation.
+large errors as well as associated large uncertainties when the signal
+is heavily corrupted by noise, i.e., the green box-marked region.                       uncertainty measures, we also utilize the sparsification plots and the
+While the noise corruption is less severe, i.e., the region marked                      sparsification errors, as illustrated in Fig. 6 and Fig. 7 respectively.
+with a red box, the model generates low prediction errors and also
+a relatively low level of uncertainty. From the visual analysis, the                       In Fig. 6, we show the sparsification plots of Deep ensembles
+uncertainty generated by Deep ensembles is more correlated with                         and MC dropout for a different number of forward passes
+the error, while MC dropout appears to underestimate the uncertainty                    M  {2,4,8,16,32}. It can be observed that both MC dropout and
+of incorrect predictions. To objectively assess the reliability of                      Deep ensembles yield decreasing sparsification plots, suggesting
+                                                                                        that they produce accurate uncertainties that correlate well with
+                                                                                        the estimation errors. It also shows that a large M leads to a
+                                                                                                                                      9
+
+                   1               Oracle epistemic                       TABLE II: Evaluation results on the DNS test dataset. All results
+                                                                          are stated as mean ± 95%-confidence interval. Unc. stands for
+RMSE (normalized)  0.8 Oracle aleatoric Epistemic                         Uncertainty.
+
+                   0.6 Oracle aleatoric & epistemic Aleatoric                              Unc.  PESQ  ESTOI  SI-SDR
+                                                                          Noisy (DNS)      -     1.58 ± 0.07 0.81 ± 0.02 9.07 ± 0.89
+                   0.4 Aleatoric & epistemic                              Baseline WF       2.48 ± 0.10 0.90 ± 0.01 16.84 ± 0.74
+                                                                          Baseline SI-SDR   2.63 ± 0.10 0.91 ± 0.01 17.49 ± 0.78
+                                                                          MC dropout        2.53 ± 0.10 0.90 ± 0.01 16.88 ± 0.74
+                   0.2                                                    Deep ensembles    2.66 ± 0.10 0.91 ± 0.01 17.16 ± 0.73
+
+                   0                                                      Aleatoric-WF      2.62 ± 0.11 0.91 ± 0.01 17.54 ± 0.78
+                      0 0.2 0.4 0.6 0.8 1                                 Aleatoric-MAP     2.69 ± 0.10 0.91 ± 0.01 17.54 ± 0.78
+                      Fraction of removed time-frequency bins             DE-Aleatoric-WF   2.77 ± 0.11 0.92 ± 0.01 17.88 ± 0.78
+                                                                          DE-Aleatoric-AMAP  2.83 ± 0.10 0.92 ± 0.01 17.90 ± 0.78
+
+Fig. 8: Sparsification plots of aleatoric ~, epistemic  , and overall     uncertainties. The corresponding AUSE values are provided in
+predictive uncertainty  (i.e., aleatoric & epistemic) on the DNS          Table I. The plot illustrates that the overall predictive uncertainty es-
+test dataset. Note that Oracle aleatoric and Oracle aleatoric &           timates correlate stronger with the estimation error than either of the
+epistemic overlap.                                                        two uncertainties alone. This suggests that two sources of uncertainty
+                                                                          may complement each other and combining both leads to more
+TABLE I: AUSE values of Aleatoric, Epistemic, and Aleatoric &             reliable uncertainty estimates. For example, Deep ensembles do not
+epistemic in Fig. 8.                                                      seem to capture sufficient uncertainty for less distorted input (e.g.,
+                                                                          first three seconds) as shown in Fig. 5, while aleatoric uncertainty
+AUSE                    Aleatoric  Epistemic  Aleatoric & epistemic       shown in Fig. 3 could be able to compensate for this shortcoming.
+                          0.110      0.094             0.067
+
+sparsification plot closer to its corresponding oracle curve, i.e.,                         VII. INFLUENCE OF MODELING
+improves the performance of the uncertainty estimation, and this
+improvement becomes saturated when M is sufficiently large, e.g.,           UNCERTAINTY FOR SPEECH ENHANCEMENT PERFORMANCE
+from M =16 to M =32.
+                                                                          In this section, we show how modeling different sources of
+   To comprehensively compare MC dropout and Deep ensembles               uncertainty affects the performance of speech enhancement.
+in terms of uncertainty modeling, AUSE is plotted as a function of        To evaluate the speech enhancement performance, we employ
+different numbers of forward passes M. Multiple models for each           perceptual evaluation of speech quality (PESQ) [77] to measure
+M are used to provide mean and standard deviation to account for          speech quality, extended short-time objective intelligibility
+variations resulting from random factors in training. 16 MC dropout       (ESTOI) [78] to measure speech intelligibility, and SI-SDR to
+models are trained and used to compute the mean of AUSE and               account for both noise reduction and speech distortion.
+its standard deviation for each possible M. For Deep ensembles, 16
+disjoint sets of M models are randomly selected from the 33 trained          To show the impact of modeling aleatoric uncertainty on speech
+models to compute the mean and standard deviation of AUSE. The            enhancement performance, we compare the performance of the
+AUSE plot in Fig. 7 provides an alternative and more informative          model trained with the proposed loss function (12) with that of Base-
+evaluation than a single sparsification plot. It indicates that Deep      line WF and Baseline SI-SDR. The proposed method enables speech
+ensembles generally produce more accurate uncertainty than MC             estimation via either the Wiener filter, which implicitly takes uncer-
+dropout, which may fail to produce reliable uncertainties for some        tainty into account during the training process, or the approximated
+erroneous predictions. This coincides with our visual observation         MAP filter, which explicitly includes uncertainty to estimate speech,
+in the green box-marked region in Fig. 5.                                 denoted as Aleatoric-WF and Aleatoric-AMAP respectively. Table II
+                                                                          shows the average evaluation results on the DNS synthetic non-
+D. Prediction Uncertainty Combining Aleatoric and Epistemic               reverb test set. Aleatoric-WF shows improvements in PESQ, ESTOI,
+Uncertainties                                                             and SI-SDR compared to the Baseline WF, indicating the benefit of
+In this part, we investigate the overall prediction uncertainty obtained  weighting Wiener estimates with uncertainty during training. Further
+by combining aleatoric uncertainty and epistemic uncertainty as           PESQ improvements over both Baseline WF and Baseline SI-SDR
+in (15). To obtain the overall prediction uncertainty, we use an          can be observed when explicitly incorporating uncertainty into clean
+ensemble of models trained with the optimization metric (12) such         speech estimation, that is, Aleatoric-AMAP. This demonstrates the
+that both aleatoric and epistemic uncertainty are captured. It has been   advantage of modeling uncertainty associated with the Wiener esti-
+shown in Section VI-C that Deep ensembles yield more accurate             mate rather than directly estimating optimal points. When evaluated
+epistemic uncertainty than MC dropout and, therefore, are selected        on another dataset with speech from WSJ and noise from CHiME3,
+for the estimation of the overall predictive uncertainty. Although a      the performance gap between Aleatoric-AMAP and the baselines in
+larger number of models M could potentially improve the mean and          terms of PESQ is further increased, as shown in Fig. 9, indicating
+variance estimation, we restrict M to 16 as further improvements          that the model that takes uncertainty into account has improved gen-
+become subtle while the computation time increases considerably.          eralization capacities for speech enhancement. This can be attributed
+                                                                          to the nonlinear estimation characteristics of the uncertainty-based
+   In Fig. 8, we use sparsification plots to analyze the quality of       AMAP estimator with respect to noisy inputs and the resulting better
+prediction uncertainty estimates combining aleatoric and epistemic        speech preservation properties. We observe larger improvements
+                                                                          over the baselines at high SNRs, which might be explained by the
+                                                                                                                                   10
+
+fact that, at high SNRs, speech quality (and thus PESQ) is mainly                              DE-Aleatoric-AMAP  DE
+affected by speech distortions, while at low SNRs the main factor                              DE-Aleatoric-WF    MC dropout
+is residual noise. Overall, these evaluation results demonstrate the                           Aleatoric-AMAP     Baseline SI-SDR
+notable benefits of modeling aleatoric uncertainty in the algorithm.                           Aleatoric-WF       Baseline WF
+
+   To show the impact of modeling epistemic uncertainty on speech                    1.2
+enhancement performance, we compare the performance of Deep
+ensembles and MC dropout with Baseline WF. We again restrict                         1.0
+M to 16 as in Section VI-D. MC dropout performs comparably to
+Baseline WF on the DNS test set, while a larger improvement can                      0.8
+be observed when using Deep ensembles. This improvement is even
+more pronounced in PESQ. Similarly, the results on the second test     PESQi         0.6
+set are shown in Fig. 9, where Deep ensembles and MC dropout
+improve over Baseline WF in terms of PESQ for all considered                         0.4
+SNRs and provide higher ESTOI scores, especially at low SNRs.
+We observe that Deep ensembles not only provide more accurate                        0.2
+uncertainty estimates than MC dropout but also lead to a better
+speech enhancement performance. A possible explanation is that                       0.0
+while MC dropout only captures local uncertainty around a single
+mode, Deep ensembles trained with different initialization points                         -10  -5  0              5  10
+are capable of exploring multiple modes in the function space to                                   SNR (dB)
+account for training data, see, e.g., [48], [49]. This may allow the
+neural network to generalize better to complex acoustic scenarios.             0.250
+
+   To show the impact of modeling predictive uncertainty that                  0.225
+combines both aleatoric and epistemic uncertainties on speech
+enhancement performance, we use the same set of models as                      0.200
+described in Section VI-D. We take the average of estimates as
+in (15) and (16) and obtain two speech estimates, called DE-           ESTOIi  0.175
+Aleatoric-WF and DE-Aleatoric-AMAP respectively. They both
+provide better ESTOI and SI-SDR scores than the baselines, the                 0.150
+epistemic uncertainty-only model, and the aleatoric uncertainty-only
+model, especially at low SNRs. Moreover, DE-Aleatoric-AMAP                     0.125
+yields higher scores in PESQ likely due to the uncertainty-dependent
+regularization and exploration of multiple modes in the function               0.100 -10 -5 0 5 10
+space. This indicates that combining the model that accounts for                                       SNR (dB)
+aleatoric uncertainty with the ensemble-based method can take
+advantage of the benefits of both approaches and further improve               11
+the performance. Overall, the evaluation results across different
+datasets show that quantifying uncertainty in neural network-based                   10
+speech enhancement leads to a considerable improvement in
+enhancement performance over the baseline models.                      SI-SDRi (dB)  9
+
+                          VIII. CONCLUSION                                           8
+In this paper, besides estimating clean speech, we quantified
+predictive uncertainty in neural network-based speech enhancement.                   7
+For this, aleatoric uncertainty, which describes inherent uncertainty
+in data, and epistemic uncertainty, which accounts for uncertainty                   6
+of the model, were captured and analyzed in a joint framework. We
+investigated the reliability of uncertainty estimates from different               5 -10 -5 0 5 10
+sources, and how it affects the enhancement performance. Our                                         SNR (dB)
+proposed hybrid loss function based on MAP inference of complex
+spectral coefficients and an AMAP estimator of spectral magnitudes     Fig. 9: Performance improvement on the dataset with speech
+has demonstrated the effectiveness in modeling aleatoric uncertainty.  from WSJ0 and noise from CHiME3. PESQi denotes PESQ
+In addition, the proposed scheme provided a principled way             improvement with respect to noisy mixtures. ESTOIi and SI-SDRi
+to create a noise-removing mask that explicitly incorporates           are defined similarly. Markers and vertical bars indicate the mean
+uncertainty to further improve speech enhancement performance.         and 95% confidence interval.
+The evaluation results on different datasets have shown increased
+generalization capacities when modeling aleatoric uncertainty.           To empirically approximate the predictive distribution and capture
+                                                                       epistemic uncertainty, we employed two Bayesian deep learning
+                                                                       methods, MC dropout and Deep ensembles. We showed that Deep
+                                                                       ensembles not only provide more accurate estimates of epistemic
+                                                                       uncertainty than MC dropout, but also lead to more prominent
+                                                                       improvements in speech enhancement. A reason may be that Deep
+                                                                       ensembles can potentially converge to different local minima in
+                                                                                        11
+
+the loss landscape due to random initialization. Furthermore, we                        [16] H. Fang, G. Carbajal, S. Wermter, and T. Gerkmann, "Variational autoencoder
+combined the proposed hybrid function with Deep ensembles to                                  for speech enhancement with a noise-aware encoder," in IEEE Int. Conf.
+quantify overall prediction uncertainty, which reflects both data                             Acoustics, Speech, Signal Proc. (ICASSP), Jun. 2021, pp. 676-680.
+uncertainty and model uncertainty. An analysis using sparsification
+plots showed that combining different types of uncertainties further                    [17] G. Carbajal, J. Richter, and T. Gerkmann, "Disentanglement learning for
+improves the reliability of predictive uncertainty estimation, indi-                          variational autoencoders applied to audio-visual speech enhancement," in IEEE
+cating the complementary nature of the two sources of uncertainty.                            Workshop Applications Signal Proc. Audio, Acoustics (WASPAA), Oct. 2021,
+Finally, our experiments indicated that the performance of clean                              pp. 126-130.
+speech estimation can be considerably improved over the baselines
+while additionally obtaining predictive uncertainty estimates.                          [18] D. Wang and J. Chen, "Supervised speech separation based on deep learning:
+                                                                                              An overview," IEEE/ACM Trans. Audio, Speech, Language Proc., vol. 26,
+   In summary, this work investigated capturing predictive                                    no. 10, pp. 1702-1726, 2018.
+uncertainty in neural network-based speech enhancement and
+showed the noticeable benefits of modeling uncertainty for clean                        [19] S. Braun and I. Tashev, "A consolidated view of loss functions for supervised
+speech estimation. Uncertainty can indicate the algorithm's                                   deep learning-based speech enhancement," in Int. Conf. on Telecommunications
+confidence in the output in the absence of ground truth, which is                             and Signal Proc. (TSP), Jul. 2021, pp. 72-76.
+essential for assessing the reliability of speech estimates. With this
+work, we hope to enlighten discussions on modeling uncertainty                          [20] J. Richter, G. Carbajal, and T. Gerkmann, "Speech enhancement with stochastic
+in the speech enhancement task, while facilitating future research                            temporal convolutional networks," in Interspeech, Oct. 2020, pp. 4516-4520.
+on how to take advantage of uncertainty.
+                                                                                        [21] S. Leglaive, X. Alameda-Pineda, L. Girin, and R. Horaud, "A recurrent
+                              REFERENCES                                                      variational autoencoder for speech enhancement," in IEEE Int. Conf. Acoustics,
+                                                                                              Speech, Signal Proc. (ICASSP), May 2020, pp. 371-375.
+ [1] T. Gerkmann and R. C. Hendriks, "Unbiased MMSE-based noise power
+      estimation with low complexity and low tracking delay," IEEE Trans. Audio,        [22] X. Bie, S. Leglaive, X. Alameda-Pineda, and L. Girin, "Unsupervised speech
+      Speech, Language Proc., vol. 20, no. 4, pp. 1383-1393, 2012.                            enhancement using dynamical variational autoencoders," IEEE/ACM Trans.
+                                                                                              Audio, Speech, Language Proc., vol. 30, pp. 2993-3007, 2022.
+ [2] T. Gerkmann and E. Vincent, "Spectral masking and filtering," in Audio Source
+      Separation and Speech Enhancement, E. Vincent, T. Virtanen, and S. Gannot,        [23] M. Sadeghi, S. Leglaive, X. Alameda-Pineda, L. Girin, and R. Horaud,
+      Eds. Wiley, 2018, pp. 65-85.                                                            "Audio-visual speech enhancement using conditional variational auto-encoders,"
+                                                                                              IEEE/ACM Trans. Audio, Speech, Language Proc., vol. 28, pp. 1788-1800,
+ [3] Y. Ephraim and D. Malah, "Speech enhancement using a minimum-mean                        2020.
+      square error short-time spectral amplitude estimator," IEEE Trans. on Acoustics,
+      Speech and Signal Proc., vol. 32, no. 6, pp. 1109-1121, 1984.                     [24] S.-W. Fu, C. Yu, T.-A. Hsieh, P. Plantinga, M. Ravanelli, X. Lu, and Y. Tsao,
+                                                                                              "MetricGAN+: An improved version of MetricGAN for speech enhancement,"
+ [4] P. J. Wolfe and S. J. Godsill, "Efficient alternatives to the ephraim and                in Interspeech, Aug. 2021, pp. 201-205.
+      malah suppression rule for audio signal enhancement," EURASIP Journal on
+      Advances in Signal Proc., vol. 2003, no. 10, pp. 1-9, 2003.                       [25] S.-W. Fu, C. Yu, K.-H. Hung, M. Ravanelli, and Y. Tsao, "MetricGAN-
+                                                                                              U: Unsupervised speech enhancement/dereverberation based only on
+ [5] I. Andrianakis and P. White, "MMSE speech spectral amplitude estimators                  noisy/reverberated speech," in IEEE Int. Conf. Acoustics, Speech, Signal Proc.
+      with Chi and Gamma speech priors," in IEEE Int. Conf. Acoustics, Speech,                (ICASSP), May 2022, pp. 7412-7416.
+      Signal Proc. (ICASSP), May 2006, pp. III-III.
+                                                                                        [26] Y.-J. Lu, Z.-Q. Wang, S. Watanabe, A. Richard, C. Yu, and Y. Tsao,
+ [6] C. Breithaupt, M. Krawczyk, and R. Martin, "Parameterized MMSE spectral                  "Conditional diffusion probabilistic model for speech enhancement," in IEEE
+      magnitude estimation for the enhancement of noisy speech," in IEEE Int. Conf.           Int. Conf. Acoustics, Speech, Signal Proc. (ICASSP), May 2022, pp. 7402-7406.
+      Acoustics, Speech, Signal Proc. (ICASSP), Mar. 2008, pp. 4037-4040.
+                                                                                        [27] S. Welker, J. Richter, and T. Gerkmann, "Speech enhancement with score-based
+ [7] R. Martin, "Noise power spectral density estimation based on optimal                     generative models in the complex STFT domain," in Interspeech, Sep. 2022,
+      smoothing and minimum statistics," IEEE Trans. on Speech and Audio Proc.,               pp. 2928-2932.
+      vol. 9, no. 5, pp. 504-512, 2001.
+                                                                                        [28] R. Rehr and T. Gerkmann, "SNR-based features and diverse training data for
+ [8] M. Tammen, D. Fischer, B. T. Meyer, and S. Doclo, "DNN-based speech                      robust DNN-based speech enhancement," IEEE/ACM Trans. Audio, Speech,
+      presence probability estimation for multi-frame single-microphone speech                Language Proc., vol. 29, pp. 1937-1949, 2021.
+      enhancement," in IEEE Int. Conf. Acoustics, Speech, Signal Proc. (ICASSP),
+      May 2020, pp. 191-195.                                                            [29] A. Kumar and D. Florencio, "Speech enhancement in multiple-noise conditions
+                                                                                              using deep neural networks," in Interspeech, Sep. 2016, p. 3738-3742.
+ [9] Y. A. Huang and J. Benesty, "A multi-frame approach to the frequency-domain
+      single-channel noise reduction problem," IEEE Trans. Audio, Speech,               [30] J. Chen, Y. Wang, S. E. Yoho, D. Wang, and E. W. Healy, "Large-scale
+      Language Proc., vol. 20, no. 4, pp. 1256-1269, 2012.                                    training to increase speech intelligibility for hearing-impaired listeners in novel
+                                                                                              noises," The Journal of the Acoustical Society of America, vol. 139, no. 5, pp.
+[10] S. Suhadi, C. Last, and T. Fingscheidt, "A data-driven approach to a priori snr          2604-2612, 2016.
+      estimation," IEEE Trans. Audio, Speech, Language Proc., vol. 19, no. 1, pp.
+      186-195, 2011.                                                                    [31] E. Hu¨llermeier and W. Waegeman, "Aleatoric and epistemic uncertainty
+                                                                                              in machine learning: An introduction to concepts and methods," Machine
+[11] Q. Zhang, A. Nicolson, M. Wang, K. K. Paliwal, and C. Wang, "DeepMMSE:                   Learning, vol. 110, no. 3, pp. 457-506, 2021.
+      A deep learning approach to MMSE-based noise power spectral density
+      estimation," IEEE/ACM Trans. Audio, Speech, Language Proc., vol. 28, pp.          [32] A. Der Kiureghian and O. Ditlevsen, "Aleatory or epistemic? Does it matter?"
+      1404-1415, 2020.                                                                        Structural Safety, vol. 31, no. 2, pp. 105-112, 2009.
+
+[12] Y. Bando, M. Mimura, K. Itoyama, K. Yoshii, and T. Kawahara, "Statistical          [33] A. Kendall and Y. Gal, "What uncertainties do we need in Bayesian deep
+      speech enhancement based on probabilistic integration of variational                    learning for computer vision?" Advances in Neural Information Proc. Systems,
+      autoencoder and non-negative matrix factorization," in IEEE Int. Conf.                  vol. 30, 2017.
+      Acoustics, Speech, Signal Proc. (ICASSP), Apr. 2018, pp. 716-720.
+                                                                                        [34] S. Depeweg, J.-M. Hernandez-Lobato, F. Doshi-Velez, and S. Udluft, "Decom-
+[13] T. Fujimura, Y. Koizumi, K. Yatabe, and R. Miyazaki, "Noisy-target training:             position of uncertainty in Bayesian deep learning for efficient and risk-sensitive
+      A training strategy for dnn-based speech enhancement without clean speech,"             learning," in Int. Conf. Machine Learning (ICML), Jul. 2018, pp. 1184-1193.
+      in European Signal Proc. Conf. (EUSIPCO), 2021, pp. 436-440.
+                                                                                        [35] T. Pearce, A. Brintrup, M. Zaki, and A. Neely, "High-quality prediction
+[14] S. Leglaive, L. Girin, and R. Horaud, "A variance modeling framework based               intervals for deep learning: A distribution-free, ensembled approach," in Int.
+      on variational autoencoders for speech enhancement," in Int. Workshop on                Conf. Machine Learning (ICML), Jul. 2018, pp. 4075-4084.
+      Machine Learning for Signal Processing (MLSP), Sep. 2018, pp. 1-6.
+                                                                                        [36] B. Lakshminarayanan, A. Pritzel, and C. Blundell, "Simple and scalable
+[15] G. Carbajal, J. Richter, and T. Gerkmann, "Guided variational autoencoder for            predictive uncertainty estimation using deep ensembles," Advances in Neural
+      speech enhancement with a supervised classifier," in IEEE Int. Conf. Acoustics,         Information Proc. Systems, vol. 30, 2017.
+      Speech, Signal Proc. (ICASSP), Jun. 2021, pp. 681-685.
+                                                                                        [37] F. K. Gustafsson, M. Danelljan, and T. B. Schon, "Evaluating scalable
+                                                                                              Bayesian deep learning methods for robust computer vision," in IEEE Conf. on
+                                                                                              Computer Vision and Pattern Recognition Workshops, Jun. 2020, pp. 318-319.
+
+                                                                                        [38] E. Ilg, O. Cicek, S. Galesso, A. Klein, O. Makansi, F. Hutter, and T. Brox,
+                                                                                              "Uncertainty estimates and multi-hypotheses networks for optical flow," in
+                                                                                              European Conf. on Computer Vision (ECCV), Sep. 2018, pp. 652-667.
+
+                                                                                        [39] L. Chai, J. Du, Q.-F. Liu, and C.-H. Lee, "Using generalized Gaussian
+                                                                                              distributions to improve regression error modeling for deep learning-based
+                                                                                              speech enhancement," IEEE/ACM Trans. Audio, Speech, Language Proc.,
+                                                                                              vol. 27, no. 12, pp. 1919-1931, 2019.
+
+                                                                                        [40] K. Kinoshita, M. Delcroix, A. Ogawa, T. Higuchi, and T. Nakatani, "Deep mix-
+                                                                                              ture density network for statistical model-based feature enhancement," in IEEE
+                                                                                              Int. Conf. Acoustics, Speech, Signal Proc. (ICASSP), Mar. 2017, pp. 251-255.
+                                                                                         12
+
+[41] S. M. Siniscalchi, "Vector-to-vector regression via distributional loss for speech  [61] M. Seitzer, A. Tavakoli, D. Antic, and G. Martius, "On the pitfalls of
+      enhancement," IEEE Signal Processing Letters, vol. 28, pp. 254-258, 2021.                heteroscedastic uncertainty estimation with probabilistic neural networks," in
+                                                                                               Int. Conf. Learning Repr. (ICLR), Apr. 2022.
+[42] Y. Gal and Z. Ghahramani, "Dropout as a Bayesian approximation:
+      Representing model uncertainty in deep learning," in Int. Conf. Machine            [62] A. Stirn and D. A. Knowles, "Variational variance: Simple, reliable, calibrated
+      Learning (ICML), Jun. 2016, pp. 1050-1059.                                               heteroscedastic noise variance parameterization," arXiv:2006.04910, 2020.
+
+[43] M. Welling and Y. W. Teh, "Bayesian learning via stochastic gradient Langevin       [63] N. Skafte, M. Jørgensen, and S. Hauberg, "Reliable training and estimation
+      dynamics," in Int. Conf. Machine Learning (ICML), Jun. 2011, pp. 681-688.                of variance networks," Advances in Neural Information Proc. Systems, vol. 32,
+                                                                                               2019.
+[44] T. Chen, E. Fox, and C. Guestrin, "Stochastic gradient Hamiltonian Monte
+      Carlo," in Int. Conf. Machine Learning (ICML), Jun. 2014, pp. 1683-1691.           [64] R. McAulay and M. Malpass, "Speech enhancement using a soft-decision
+                                                                                               noise suppression filter," IEEE Trans. on Acoustics, Speech and Signal Proc.,
+[45] C. Blundell, J. Cornebise, K. Kavukcuoglu, and D. Wierstra, "Weight                       vol. 28, no. 2, pp. 137-145, 1980.
+      uncertainty in neural network," in Int. Conf. Machine Learning (ICML), Jun.
+      2015, pp. 1613-1622.                                                               [65] J. Le Roux, S. Wisdom, H. Erdogan, and J. R. Hershey, "SDR-half-baked
+                                                                                               or well done?" in IEEE Int. Conf. Acoustics, Speech, Signal Proc. (ICASSP),
+[46] Y. Gal and Z. Ghahramani, "Bayesian convolutional neural networks with                    May 2019, pp. 626-630.
+      Bernoulli approximate variational inference," in Int. Conf. Learning Repr.
+      (ICLR) workshop track, 2016.                                                       [66] J. Heitkaemper, D. Jakobeit, C. Boeddeker, L. Drude, and R. Haeb-Umbach,
+                                                                                               "Demystifying TasNet: A dissecting approach," in IEEE Int. Conf. Acoustics,
+[47] J. Nixon, B. Lakshminarayanan, and D. Tran, "Why are bootstrapped deep                    Speech, Signal Proc. (ICASSP), May 2020, pp. 6359-6363.
+      ensembles not better?" in "I Can't Believe It's Not Better!" Neural Information
+      Proc. Systems workshop, 2020.                                                      [67] R. M. Neal, "Bayesian learning for neural networks," PhD thesis, University
+                                                                                               of Toronto, 1995.
+[48] S. Fort, H. Hu, and B. Lakshminarayanan, "Deep ensembles: A loss landscape
+      perspective," in "Bayesian Deep Learning" Neural Information Proc. Systems         [68] C. K. Reddy, V. Gopal, R. Cutler, E. Beyrami, R. Cheng, H. Dubey,
+      workshop, 2019.                                                                          S. Matusevych, R. Aichner, A. Aazami, S. Braun, P. Rana, S. Srinivasan,
+                                                                                               and J. Gehrke, "The INTERSPEECH 2020 Deep Noise Suppression
+[49] A. G. Wilson and P. Izmailov, "Bayesian deep learning and a probabilistic                 Challenge: Datasets, Subjective Testing Framework, and Challenge Results,"
+      perspective of generalization," Advances in Neural Information Proc. Systems,            in Interspeech, May 2020, pp. 2492-2496.
+      vol. 33, pp. 4697-4708, 2020.
+                                                                                         [69] G. Pirker, M. Wohlmayr, S. Petrik, and F. Pernkopf, "A pitch tracking corpus
+[50] N. Srivastava, G. Hinton, A. Krizhevsky, I. Sutskever, and R. Salakhutdinov,              with evaluation on multipitch tracking scenario," in Interspeech, Aug. 2011,
+      "Dropout: A simple way to prevent neural networks from overfitting," The                 pp. 1509-1512.
+      Journal of Machine Learning Research, vol. 15, no. 1, pp. 1929-1958, 2014.
+                                                                                         [70] J. Garofolo, D. Graff, D. Paul, and D. Pallett, "CSR-I (WSJ0) Sennheiser
+[51] K. Sridhar and C. Busso, "Modeling uncertainty in predicting emotional                    LDC93S6B," Web Download. Philadelphia: Linguistic Data Consortium, 1993.
+      attributes from spontaneous speech," in IEEE Int. Conf. Acoustics, Speech,
+      Signal Proc. (ICASSP), May 2020, pp. 8384-8388.                                    [71] J. Barker, R. Marxer, E. Vincent, and S. Watanabe, "The third `CHiME' speech
+                                                                                               separation and recognition challenge: Dataset, task and baselines," in 2015
+[52] N. Raj Prabhu, G. Carbajal, N. Lehmann-Willenbrock, and G. Timo,                          IEEE Workshop on Automatic Speech Recognition and Understanding (ASRU),
+      "End-to-end label uncertainty modeling for speech-based arousal recognition              Dec. 2015, pp. 504-511.
+      using Bayesian neural networks," in Interspeech, Sep. 2022, pp. 151-155.
+                                                                                         [72] A. Jansson, E. J. Humphrey, N. Montecchio, R. M. Bittner, A. Kumar, and
+[53] S. Braun and S.-C. Liu, "Parameter uncertainty for end-to-end speech                      T. Weyde, "Singing voice separation with deep U-Net convolutional networks,"
+      recognition," in IEEE Int. Conf. Acoustics, Speech, Signal Proc. (ICASSP),               in ISMIR, Oct. 2017.
+      May 2019, pp. 5636-5640.
+                                                                                         [73] K. Tan and D. Wang, "A convolutional recurrent neural network for real-time
+[54] S. Khurana, N. Moritz, T. Hori, and J. L. Roux, "Unsupervised domain                      speech enhancement," in Interspeech, Sep. 2018, pp. 3229-3233.
+      adaptation for speech recognition via uncertainty driven self-training," in IEEE
+      Int. Conf. Acoustics, Speech, Signal Proc. (ICASSP), Jun. 2021, pp. 6553-6557.     [74] D. Ulyanov, A. Vedaldi, and V. Lempitsky, "Improved texture networks:
+                                                                                               Maximizing quality and diversity in feed-forward stylization and texture
+[55] A. Vyas, P. Dighe, S. Tong, and H. Bourlard, "Analyzing uncertainties in                  synthesis," in IEEE Conf. on Computer Vision and Pattern Recognition, Jul.
+      speech recognition using dropout," in IEEE Int. Conf. Acoustics, Speech,                 2017, pp. 6924-6932.
+      Signal Proc. (ICASSP), May 2019, pp. 6730-6734.
+                                                                                         [75] D. P. Kingma and J. Ba, "Adam: A method for stochastic optimization," Int.
+[56] K. Alex, B. Vijay, and C. Roberto, "Bayesian SegNet: Model uncertainty in                 Conf. Learning Repr. (ICLR), Dec. 2014.
+      deep convolutional encoder-decoder architectures for scene understanding," in
+      Proc. of the British Machine Vision Conf. (BMVC), Sep 2017, pp. 57.1-57.12.        [76] A. S. Wannenwetsch, M. Keuper, and S. Roth, "Probflow: Joint optical flow
+                                                                                               and uncertainty estimation," in IEEE/CVF Int. Conf. on Computer Vision
+[57] J. Le Roux, S. Watanabe, and J. R. Hershey, "Ensemble learning for speech                 (ICCV), Oct. 2017, pp. 1173-1182.
+      enhancement," in IEEE Workshop Applications Signal Proc. Audio, Acoustics
+      (WASPAA), Oct. 2013, pp. 1-4.                                                      [77] A. Rix, J. Beerends, M. Hollier, and A. Hekstra, "Perceptual evaluation
+                                                                                               of speech quality (PESQ)-a new method for speech quality assessment of
+[58] H. Zhang, X. Zhang, and G. Gao, "Multi-target ensemble learning for monaural              telephone networks and codecs," in IEEE Int. Conf. Acoustics, Speech, Signal
+      speech separation," in Interspeech, Aug. 2017, pp. 1958-1962.                            Proc. (ICASSP), May 2001, pp. 749-752.
+
+[59] H. Fang, T. Peer, S. Wermter, and T. Gerkmann, "Integrating statistical             [78] J. Jensen and C. H. Taal, "An algorithm for predicting the intelligibility of
+      uncertainty into neural network-based speech enhancement," in IEEE Int. Conf.            speech masked by modulated noise maskers," IEEE/ACM Trans. Audio,
+      Acoustics, Speech, Signal Proc. (ICASSP), May 2022, pp. 386-390.                         Speech, Language Proc., vol. 24, no. 11, pp. 2009-2022, 2016.
+
+[60] C. Fe´votte and J. Idier, "Algorithms for nonnegative matrix factorization with
+      the -divergence," Neural computation, vol. 23, no. 9, pp. 2421-2456, 2011.
+

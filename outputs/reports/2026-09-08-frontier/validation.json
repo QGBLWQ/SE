@@ -1,0 +1,304 @@
+{
+  "pdfs": [
+    {
+      "path": "outputs\\reports\\2026-09-08-frontier\\enhancement\\2601.16483_FlowSE-GRPO.pdf",
+      "bytes": 3244290,
+      "pdf_header": true,
+      "sha256": "95938711e897240390dc1a5016213e4c2ea2ac6a74e77ed51425fd87633d2ed8",
+      "pages": 5,
+      "all_pages_text_chars": [
+        6008,
+        4330,
+        5516,
+        4304,
+        8562
+      ]
+    },
+    {
+      "path": "outputs\\reports\\2026-09-08-frontier\\enhancement\\2608.07423_Cloud-Boosted-MCSE.pdf",
+      "bytes": 419009,
+      "pdf_header": true,
+      "sha256": "8bc2dd68878d0300a6d5584d958dfd1cf16373c5c27b1d3d8447f4ce57cc24bc",
+      "pages": 5,
+      "all_pages_text_chars": [
+        6196,
+        5245,
+        5518,
+        6183,
+        5782
+      ]
+    },
+    {
+      "path": "outputs\\reports\\2026-09-08-frontier\\enhancement\\2608.21155_muNet.pdf",
+      "bytes": 701880,
+      "pdf_header": true,
+      "sha256": "73e317a1d6999d2daee219cb87553d5cf727af12c85ad06201068aded90b449a",
+      "pages": 6,
+      "all_pages_text_chars": [
+        4889,
+        5116,
+        4561,
+        3597,
+        5035,
+        5343
+      ]
+    },
+    {
+      "path": "outputs\\reports\\2026-09-08-frontier\\enhancement\\2608.30739_Balanced-Spectral-Reconstruction.pdf",
+      "bytes": 3861092,
+      "pdf_header": true,
+      "sha256": "587134c6bb4d1e8671e22b9cf088f928d765ecc6f9c4dd214575bf007c6b1b43",
+      "pages": 5,
+      "all_pages_text_chars": [
+        4798,
+        4839,
+        5011,
+        4068,
+        5805
+      ]
+    },
+    {
+      "path": "outputs\\reports\\2026-09-08-frontier\\enhancement\\2609.00431_U-PAST.pdf",
+      "bytes": 1846843,
+      "pdf_header": true,
+      "sha256": "a8e78f463bded28927723d3155f19f7e008b6645bb44277a24d2701e7dbfa098",
+      "pages": 12,
+      "all_pages_text_chars": [
+        3641,
+        2839,
+        5037,
+        2625,
+        3808,
+        3621,
+        4593,
+        2862,
+        2633,
+        4967,
+        4325,
+        1254
+      ]
+    },
+    {
+      "path": "outputs\\reports\\2026-09-08-frontier\\localization\\01_neuralmusic_2606.18664v3.pdf",
+      "bytes": 7368282,
+      "pdf_header": true,
+      "sha256": "95a581166bd4394b46fa23e5f37f4c8279846c8e3631d3f9ac78fe96eebf4e90",
+      "pages": 13,
+      "all_pages_text_chars": [
+        5304,
+        4840,
+        3399,
+        4130,
+        3605,
+        3758,
+        4326,
+        6864,
+        6003,
+        5169,
+        1576,
+        5625,
+        827
+      ]
+    },
+    {
+      "path": "outputs\\reports\\2026-09-08-frontier\\localization\\02_sff_multispeaker_doa_2606.17258v1.pdf",
+      "bytes": 2052705,
+      "pdf_header": true,
+      "sha256": "c92110cc4b75143048837eaaff2dfde547ba4b2fb7a9fa6b4e4b8fe03efdfc3b",
+      "pages": 34,
+      "all_pages_text_chars": [
+        3048,
+        3909,
+        3657,
+        2759,
+        2295,
+        1243,
+        1484,
+        2335,
+        2290,
+        2668,
+        1443,
+        464,
+        1788,
+        3087,
+        1134,
+        1967,
+        2844,
+        2537,
+        2195,
+        2703,
+        3078,
+        2678,
+        3081,
+        2605,
+        3598,
+        2193,
+        1427,
+        879,
+        3099,
+        2080,
+        2460,
+        2572,
+        2450,
+        795
+      ]
+    },
+    {
+      "path": "outputs\\reports\\2026-09-08-frontier\\localization\\03_sarl_benchmark_2606.05544v2.pdf",
+      "bytes": 283741,
+      "pdf_header": true,
+      "sha256": "3dc8a7601a5ea1d020c49759f265bacaf7851cb00163d44c2cce56a5da5bcf0f",
+      "pages": 5,
+      "all_pages_text_chars": [
+        5785,
+        6599,
+        5741,
+        5918,
+        7629
+      ]
+    },
+    {
+      "path": "outputs\\reports\\2026-09-08-frontier\\localization\\04_vine_robot_acoustic_localization_2607.20392v1.pdf",
+      "bytes": 708132,
+      "pdf_header": true,
+      "sha256": "e22998bcf0a6419beb12c87380ee5505594ef353d99c88a26535f3c97d17a6f1",
+      "pages": 8,
+      "all_pages_text_chars": [
+        6119,
+        6675,
+        5242,
+        6339,
+        5888,
+        5833,
+        4440,
+        8092
+      ]
+    },
+    {
+      "path": "outputs\\reports\\2026-09-08-frontier\\localization\\05_fault_resilient_tta_ieee_access_2026.pdf",
+      "bytes": 4965589,
+      "pdf_header": true,
+      "sha256": "3151097386e7ba79a1c61df48e589fcc405d7a274b0f21a3409ee81229f2a29a",
+      "pages": 24,
+      "all_pages_text_chars": [
+        4103,
+        6186,
+        6275,
+        5148,
+        4725,
+        5702,
+        3891,
+        5520,
+        5246,
+        5335,
+        6097,
+        5686,
+        5853,
+        4774,
+        3294,
+        5522,
+        6271,
+        4484,
+        3518,
+        5565,
+        5266,
+        4911,
+        6770,
+        8782
+      ]
+    }
+  ],
+  "notes": [
+    {
+      "path": "wiki\\concepts\\流匹配与 GRPO 后训练.md",
+      "chars": 621,
+      "issues": []
+    },
+    {
+      "path": "wiki\\concepts\\端云协同多通道语音增强.md",
+      "chars": 569,
+      "issues": []
+    },
+    {
+      "path": "wiki\\concepts\\频谱自适应损失.md",
+      "chars": 624,
+      "issues": []
+    },
+    {
+      "path": "wiki\\sources\\Balanced Spectral Reconstruction 2026.md",
+      "chars": 2644,
+      "issues": []
+    },
+    {
+      "path": "wiki\\sources\\Cloud-Boosted MCSE 2026.md",
+      "chars": 2749,
+      "issues": []
+    },
+    {
+      "path": "wiki\\sources\\FlowSE-GRPO 2026.md",
+      "chars": 3514,
+      "issues": []
+    },
+    {
+      "path": "wiki\\sources\\muNet 2026.md",
+      "chars": 2963,
+      "issues": []
+    },
+    {
+      "path": "wiki\\sources\\U-PAST 2026.md",
+      "chars": 3722,
+      "issues": []
+    },
+    {
+      "path": "wiki\\topics\\2026 语音增强前沿五篇比较.md",
+      "chars": 2531,
+      "issues": []
+    },
+    {
+      "path": "wiki_array\\concepts\\SFF 单频滤波.md",
+      "chars": 685,
+      "issues": []
+    },
+    {
+      "path": "wiki_array\\concepts\\测试时自适应 TTA.md",
+      "chars": 720,
+      "issues": []
+    },
+    {
+      "path": "wiki_array\\concepts\\空间音频表征探测.md",
+      "chars": 744,
+      "issues": []
+    },
+    {
+      "path": "wiki_array\\sources\\NeuralMUSIC 2026.md",
+      "chars": 5220,
+      "issues": []
+    },
+    {
+      "path": "wiki_array\\sources\\SARL 空间表征探测基准 2026.md",
+      "chars": 3593,
+      "issues": []
+    },
+    {
+      "path": "wiki_array\\sources\\SFF 多说话人 DOA 2026.md",
+      "chars": 4166,
+      "issues": []
+    },
+    {
+      "path": "wiki_array\\sources\\容错 SSL 诊断引导测试时自适应 2026.md",
+      "chars": 4655,
+      "issues": []
+    },
+    {
+      "path": "wiki_array\\sources\\软体藤蔓机器人分布式声定位 2026.md",
+      "chars": 3649,
+      "issues": []
+    },
+    {
+      "path": "wiki_array\\topics\\2026 前沿声源定位五篇比较.md",
+      "chars": 2469,
+      "issues": []
+    }
+  ],
+  "issues": []
+}

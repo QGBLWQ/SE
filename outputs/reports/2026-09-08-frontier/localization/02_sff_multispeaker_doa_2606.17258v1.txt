@@ -1,0 +1,1479 @@
+
+
+===== PDF page 1 =====
+
+Single frequency filtering based multi-speaker direction of arrival
+estimation from stereo recordings
+Sushmita Thakallapalli1, Sudarsana Reddy Kadiri2, Nilesh Madhu3, and Suryakanth V
+Gangashetty1
+1Speech Processing Laboratory, International Institute of Information Technology, Hyderabad, India
+2Signal Analysis and Interpretation Laboratory, University of Southern California, Los Angeles, USA
+3IDLab, Dept. Electronics&Information Systems, Ghent University - imec, Belgium
+Abstract
+Robust estimation of direction of arrival (DoA) of a target source from noisy and reverberant mi-
+crophone signals is a challenging problem. Conventional DoA estimators such as Generalized
+cross correlation (GCC) and its variants work in the short-time Fourier transform (STFT) domain
+on the spectral features, which represent mostly characteristics of vocal tract system during speech
+production. A few recent estimators operate in a time-frequency (TF) domain called single fre-
+quency filtering (SFF). In this domain, the complex outputs at several frequencies are obtained by
+filtering the speech signals through a single pole filter and the signals are represented with good
+spectral resolution of harmonics and good temporal resolution of excitation source features such
+as impulse-like excitations (corresponding to the epoch locations). Such simultaneous good spec-
+tral and temporal resolution is not evident in the STFT domain. The SFF-based estimators exploit
+either spectral or excitation source features of speech production. A study has empirically verified
+that the excitation source features are more robust to degradations like noise and reverberation than
+the spectral features, motivating us to further explore methods to improve the existing SFF-based
+DoA estimators, which exploit the characteristics of excitation source during speech production.
+In the proposed estimator, the envelopes at several frequencies of SFF outputs are correlated with
+the corresponding envelopes at the other channel by PHAse Transform (PHAT) weighted GCC.
+Further, since no existing studies evaluate and compare the SFF-based with GCC-based estima-
+tors, comprehensive evaluations (in terms of detection and accuracy metrics) of several estimators
+are performed to understand relative merits and demerits of SFF-basedvsstate-of-the-art GCC-
+based estimators1. The tests are conducted on publicly available data collected in real rooms in
+challenging conditions such as high reverberation and multiple speakers. For rigorous evaluations,
+the data is further corrupted by different types of noise. From the experiments, it is observed that
+the detection and accuracy capabilities of the proposed and an existing SFF-based estimator are
+superior or comparable to those of the best performing GCC-based estimator in all the test cases.
+Keywords:sound source direction-of-arrival, single frequency filtering, generalized cross
+correlation, time delay estimation
+1This work is an extension to the preliminary work done in [1]
+arXiv:2606.17258v1  [eess.AS]  15 Jun 2026
+
+===== PDF page 2 =====
+
+1. Introduction
+Speech processing devices such as hands-free communication kits, voice-controlled, smart-
+home devices and hearing aids require high quality speech from the target speaker for robust per-
+formance. In a closed room environment, the target speech collected at the array of microphones
+within the devices may be corrupted by background noise, room reverberation and/or interfering
+speakers. One effective way of enhancing the target speech is to use the array of microphones
+to, first, find the Time Difference of Arrival (TDoA)/DoA of the signals at the microphones, and
+then, to use this information of TDoA/DoA to extract the target speech as in beamformers [2] or
+as in DoA-informed source extraction techniques [3, 4, 5, 6]. In this paper, the terms DoA and
+TDoA are used interchangeably because knowing one term, the other one can be estimated from
+the knowledge of the microphone array geometry (as described in Section 2).
+TDoA estimators may be broadly classified based on the kind of features of speech produc-
+tion used in them as: (i) spectral feature based or (ii) excitation source feature based estimators.
+The widely used GCC-based estimators [7] exploit spectral features that mostly correspond to the
+shape of vocal tract during speech production [8]. While in GCC, a TDoA is obtained for each
+time frame in the STFT representation, in a few other estimators, a TDoA is obtained locally in
+each time-frequency (TF) bin [9, 10, 11, 12, 13]. While the former estimators are termed as broad-
+band (since all the frequencies per time frame are considered), the latter are called narrowband.
+On the other hand, a few TDoA estimators exploit features from excitation source of speech
+production. An example of this feature is impulse-like excitations corresponding to epoch loca-
+tions in a speech signal. While the spectral features are affected by degradations such as noise and
+reverberation, the excitation features are less affected [8]. Therefore, the estimators that exploit ex-
+citation source features may be more robust than those that use spectral features. In [8], excitation
+source features extracted using Hilbert envelope of Linear Prediction (LP) residual of the micro-
+phone signal are used for TDoA estimation. The TDoA estimator proposed in [8] haslower or
+equalbias, variance and root mean square error than GCC-based estimators, thereby highlighting
+the benefit of using excitation features.
+Recently, excitation source features emphasized in SFF representation are explored for TDoA/DoA
+estimation in [14, 1]. By filtering a differenced speech signal through a single pole filter, complex
+outputs (consisting of amplitude envelopes and the corresponding phase) at any desired frequency
+can be obtained. The pole is placed close to the unit circle in the z-plane to get a very narrow band
+filter, effectively filtering a single frequency and hence the term “single frequency filtering (SFF)"
+is used. The SFF outputs at desired frequencies are stacked to obtain the SFF TF representation.
+In the SFF domain, speech signals are represented with high temporal resolution of impulse-like
+events and spectral resolution of harmonics and resonances. This combination of high spectral and
+temporal resolution is not evident in the STFT representation as demonstrated in Section 4. The
+high signal-to-noise ratio regions (pertaining to impulse-like excitations) in the mean and variance
+of SFF outputs across the frequencies are used for DoA estimation in [1]. In [14], SFF amplitude
+envelopes at several frequencies are cross-correlated with the corresponding amplitude envelopes
+at the other channel for robust TDoA estimation. In this SFF-based TDoA estimator, the high
+signal-to-noise ratio regions at various frequencies of SFF amplitude envelopes of mixture signals
+are exploited. Not only for TDoA estimation but also in other speech applications such as - ex-
+2
+
+===== PDF page 3 =====
+
+traction of fundamental frequency [15, 16] and epoch extraction [17] - the presence of impulse
+property in amplitude envelopes is exploited. Further, the spectral features emphasized in SFF
+representation are exploited for TDoA estimation in studies in [18], where instantaneous time de-
+lays are estimated by using the phase of SFF outputs.
+Based on the facts mentioned above, we hypothesize that TDoA estimators that use excitation
+source features of speech production would be superior than those that use system-based features
+of speech production and that SFF TF domain may be better than the STFT TF domain. Therefore,
+we further experimented with an SFF-based estimator that uses excitation source features [14] and
+suggested a modification to it to enhance its performance. Specifically, we propose to perform
+a PHAT weighted correlation than the time domain correlation performed in [14], i.e., SFF am-
+plitude envelopes at various frequencies are cross-correlated with PHAT weighting since, PHAT
+weighting leads to robust DoA estimators. Lower frequency components of speech, which have
+significantly higher energy than higher frequency components [19], would dominate the summa-
+tion in the GCC-based function, making the peaks in GCC-based function broad and less sharp
+[20]. PHAT weighting flattens the magnitude spectrum, resulting in narrow peaks. The study in
+[21] proves that PHAT works well in reverberation and low noise conditions.
+Moreover, the existing SFF-based estimators in [18, 14, 1] are not evaluated rigorously. For
+example, only two of the three SFF-based DoA estimators are compared with GCC-based DoA
+estimators [14, 1]. Also, the experiments in [14] are evaluated on some lab recordings, which lack
+the diversity of room acoustic conditions. The evaluations in [1] are conducted both on simulated
+and real recordings. But the real data chosen does not have adverse conditions. The metrics chosen
+to evaluate the three estimators are not exhaustive. To fill these gaps, the present study evaluates
+the SFF-based and GCC-based estimators more rigorously in terms of several source detection
+and accuracy metrics on publicly available databases consisting of real recordings. The recordings
+are further corrupted with different kinds of noise for more rigorous evaluation. Also, unlike
+the studies in [18, 14, 1], a systematic method of choosing various SFF parameters is adapted.
+These evaluations will help in understanding of relative merits and demerits of various SFF-based
+compared to GCC-based estimators. Hence, we expect that the results in this paper are more
+indicative of the comparative performance of SFF-based and GCC-based estimators. Lastly, the
+performance of aweightedGCC-PHAT is compared with the best performing SFF-based methods.
+TheweightedGCC-PHAT is obtained by highlighting a fewreliableTF bins in which the speech
+sources are dominant. To summarize, the main contributions of the study are:
+•A method to improve the performance of an existing single frequency filtering (SFF)-based
+DoA estimator is proposed. On the DoA estimation experiments conducted on publicly
+available LOCATA and SiSEC datasets, the detection and accuracy capabilities of the DoA
+estimator with the proposed modification are significantly better.
+•None of the studies compare the existing four SFF-based with the GCC-based estimators
+rigorously. In this contribution, rigorous (by adding different noises to the SiSEC data)
+evaluations are performed. Further, a systematic method to choose the parameters of the
+estimators is developed.
+•On the rigorous tests conducted, the performance of the proposed (SFF-PHAT-env) and an-
+3
+
+===== PDF page 4 =====
+
+other SFF-based (SFF-PHAT) estimators are superior or comparable to the best-performing
+GCC-based (GCC-PHAT) estimator in all the metrics.
+•The performance of GCC-PHAT is improved by highlighting the speech dominant TF bins
+and thisweightedestimator outperforms theunweightedGCC-PHAT in all the performance
+measures on the noisy SiSEC. However, SFF-PHAT has lower MAE metrics than theweighted
+GCC-PHAT and has a comparable F-measure in most of the noises, showing the benefit of
+SFF-PHAT.
+The remainder of the paper is organized as follows: Section 2 gives the signal model and the
+relation between TDoA and DoA. Section 3 describes the method to obtain the SFF representation.
+The two TF representations, SFF and STFT, are compared in Section 4. Section 5 presents a new
+SFF-based DoA estimator along with the description and implementation details of the existing
+SFF-based DoA/TDoA estimators. The details of the experimental set-up are given in Section 6,
+which includes the data set, baseline estimators (GCC-based and Hilbert envelope-based) chosen
+for comparison, along with the parameters chosen, evaluation metrics, and experiments. The
+results and discussion are in Section 7. In addition, aweightedGCC-PHAT is compared with
+SFF-PHAT. Section 8 presents the summary of the study, conclusions, and scope for future work.
+2. Signal Model
+Consider an array ofMmicrophones that captures the signals radiated byQbroadband sound
+sources in the far field (i.e., the distance of the source from the array is much larger than the array’s
+aperture size). The microphone locations may be expressed in 3D Cartesian co-ordinates by the
+vectors asr 1, . . . ,rM, wherer m =[r m,x,r m,y,r m,z]T. Under the far field assumption, the DoA vector
+for sourceqin this co-ordinate system can be denoted as:
+nq(θ, ϕ)=
+
+cos(θq) sin(ϕq),sin(θ q) sin(ϕq),cos(ϕ q)
+T
+,(1)
+where 0≤θ≤2πis the azimuth angle between the projection ofn q(θ, ϕ) on to thexyplane and
+the positivex-axis and 0≤ϕ≤πis the elevation angle with respect to the positivez-axis.
+In the STFT domain, the image of sourceqat the array, in thek th frequency bin andb th time
+frame, can be compactly denoted as:X q(k,b)=[X q,1(k,b), . . . ,X q,M(k,b)] T .IfV(k,b) is the
+STFT-domain representation of the background noise at the array, the net signal captured by the
+array can be written as:
+X(k,b)=
+QX
+q=1
+Xq(k,b)+V(k,b),(2)
+whereX(k,b)=[X 1(k,b), . . . ,X M(k,b)] T .
+2.1. Relation between DoA and TDoA in the Case of Two Microphones
+In two microphone DoA estimators, the usual first step is to estimate the time difference of
+arrival of the signals at two microphones. Subsequently, DoA of the signal of interest is es-
+timated from the TDoAτand with the knowledge of microphone array geometry as follows:
+4
+
+===== PDF page 5 =====
+
+the microphone positions in 3D Cartesian co-ordinates can be expressed in vector notation asr 1
+andr 2. In case of two microphone,ϕ= π
+2 because it may be assumed that the sound source
+and the linear array are co-planar and the DoA corresponds toθ. Then, DoA vectorn q(θ, π
+2)=
+cos(θq) sin(π
+2),sin(θ q) sin(π
+2),cos( π
+2)
+T
+=
+
+cos(θq),sin(θ q),0
+T
+. DoA vectorn q(θ, π
+2) and
+TDoAτare related as follows:
+τ= [r1 −r 2]T nq(θ, π
+2)
+c ,(3)
+where, c is speed of sound at room temperature. Given the array geometry and the estimatedτ,
+using Equation (3), DoAθcan be estimated.
+Since the DoA can be calculated from the estimated TDoA, the two terms are used interchange-
+ably. Henceforth, all the estimators would be referred to as DoA estimators, though they may have
+been proposed for TDoA estimation. All the correlation functions in the following sections would
+be defined as a function of azimuth angleτ(θ), whereθis set of pre-selected search DoAs over
+which the estimator is swept through for DoA estimation.
+3. SFF TF representation of Speech Signals
+By passing the frequency-shifted speech signals through a near ideal resonator located at half
+the sampling frequency fs
+2 , the complex SFF output (envelope and the corresponding phase) as a
+function of time is obtained at any desired frequency. The steps involved in computing the SFF
+output at a given frequencyf k are as follows [22]:
+1. The microphone speech signalx[n] is differenced to reduce low frequency trend in the signal
+as follows:
+˜s[n]=x[n]−x[n−1].(4)
+2. The differenced signal ˜s[n] is frequency-shifted by multiplying it withe j¯ωkn (where ¯ωk =
+π−ω k =π− 2πf k
+fs
+). The frequency-shifted signal is given by:
+˜s[k,n]=˜s[n]ej¯ωkn.(5)
+3. The signal ˜s[k,n] is passed through a single pole filter with transfer function given by:
+FSFF(z)= 1
+1+rz −1 .(6)
+The root is on the negative real axis atz=−r. To ensure the stability of the filter, thervalue
+is chosen closer to the unit circle (r≈1). This corresponds to filtering the signal using a
+near ideal resonator atf s/2.
+4. The output of the filter is given by:
+y[k,n]=−ry[k,n−1]+˜s[k,n].(7)
+5. Lety[k,n]=y r[k,n]+jy i[k,n], wherey r[k,n] andy i[k,n] are the real and imaginary parts
+ofy[k,n]. The magnitude or amplitude envelopee[k,n] and the phaseψ[k,n] of the signal
+5
+
+===== PDF page 6 =====
+
+y[k,n] atk th frequency are given by:
+e[k,n]=
+q
+y2
+r[k,n]+y 2
+i [k,n],(8)
+and
+ψ[k,n]=tan −1( yi[k,n]
+yr[k,n] ).(9)
+The impulse response of the filter in Equation (6) is an exponentially decaying windowfS FF[n]=
+(−r)nu[n], whereu[n] is a unit step function. As the value ofrincreases, the 3 dB bandwidth of
+the filterB S FF decreases. The parameterrand the 3dBbandwidth of the filterB S FF (inHz) are
+inversely related by [23]:
+BS FF = fs
+2πcos−1 4r−r 2 −1
+2r
+.(10)
+The SFF output is obtained forK S FF frequencies that are equally spaced intervals between 0 and
+fs
+2 . From the amplitude envelopes of SFFe[k,n], we can get the SFF spectrum of the signal at
+every instant of time. The important characteristic ofe[k,n] at different frequenciesf k is that it
+has some high SNR regions (impulse-like events corresponding to epochs) [22]. This high SNR
+property is exploited in DoA estimators.
+4. Comparison of SFF and STFT TF representations
+SFF representation of speech provides high temporal resolution of some features of excitation
+source such as impulse-like events, and high spectral resolution of features such as harmonics
+[17, 16]. The high spectral and temporal resolution of SFF over STFT may be visualized using the
+Figures 1 to 3.
+6
+
+===== PDF page 7 =====
+
+(a) SFF spectrogram with r = 0.995
+0
+2000
+4000Freq. (Hz)
+(b) STFT spectrogram with window size = 5 ms
+4000
+2000
+0
+Freq. (Hz)
+(c) STFT spectrogram with window size = 30 ms
+2000 4000 6000 8000 10000 12000 14000
+Time (samples)
+4000
+2000
+0
+Freq. (Hz)
+Figure 1: (a) SFF spectrogram obtained withr=0.995 andK S FF =200 and the speech signal is sampled at 8 KHz.
+(b) STFT spectrogram obtained with a Hann window of 5 ms with a hop of 1 sample and 400 point DFT. (c) STFT
+spectrogram obtained with a Hann window of 30 ms with a hop of 1 sample and 400 point DFT. It is observed that
+the spectral resolution in (a) and (c) is significantly better than the spectral resolution in (b).
+2000 4000 6000 8000 10000 12000 14000
+0
+1
+(a) Speech signal
+0
+0.5
+1
+(b) SFF (r=0.995)
+0
+0.5
+1
+(c) STFT (window size = 5 ms)
+2000 4000 6000 8000 10000 12000 14000
+Time (samples)
+0
+0.5
+1
+(d) STFT (window size = 30 ms)
+Figure 2: (a) A Speech signal. (b) Mean (across frequencies) of SFF spectrogram of the signal in (a). (c) Mean
+(across frequencies) of STFT spectrogram of the signal in (a) obtained with a short window of 5 ms. (d) Mean (across
+frequencies) of STFT spectrogram of the signal in (a) obtained with a long window of 30 ms. The vertical striations
+in (b) and (c) indicate good temporal resolution, implying that the STFT with short window and SFF capture the
+occurrence of impulse-like excitations. The absence of vertical striations in (d) indicate poor temporal resolution of
+long window STFT.
+7
+
+===== PDF page 8 =====
+
+Figure 3: (a) A voiced speech segment (Slice of the speech signal in Figure 2). (b) Mean (across frequencies) of SFF
+spectrogram of the segment in (a). (c) Mean (across frequencies) of STFT spectrogram of the segment in (a) obtained
+with a short window of 5 ms. (d) Mean (across frequencies) of STFT spectrogram of the segment in (a) obtained with
+a long window of 30 ms. SFF (b) and STFT with short window (c) capture occurrence of impulse-like excitations,
+implying good temporal resolution. STFT with long window (d) has poor temporal resolution.
+Figure 1 shows the spectrograms of SFF and STFT of a speech signal. SFF spectrogram in
+Figure 1(a) is obtained withr=0.995 andK S FF =200. STFT spectrogram is obtained with
+a 400-point DFT so that the unique frequency bins of STFT (≈200) is equal toK S FF. Hann
+window of sizes 5 ms in Figure 1(b) and 30 ms in Figure 1(c) at sampling rate of 8 kHz and hop
+size of 1 sample are used. From the figure, it is observed that the spectral resolution of SFF and
+that of STFT with 30 ms is higher than the spectral resolution of STFT with 5 ms. To visualize
+the temporal resolution, the spectrograms are summed across frequencies and plotted in Figure 2
+along with the speech signal. In Figure 3, a portion of Figure 2 is selected and plotted.
+From Figures 2 and 3, it is evident that the temporal resolution of impulse-like events is high
+in SFF and STFT with window size of 5 ms, and in STFT with window size of 30 ms the tem-
+poral resolution is poor. Hence, it can be concluded that SFF offers a high spectral and temporal
+resolution which is not possible in STFT with a single window size.
+5. SFF-based DoA Estimators
+In SFF TF representation, the DoA estimators exploit either spectral features [18] or excitation
+source features [14, 1]. Cross-correlation of mean and variance spectral features derived from SFF
+representation is performed in [1], where, the robust high SNR regions in the spectral features
+are exploited for accurate DoA estimation.These estimators are referred to as SFF-mean and SFF-
+var respectively. The implementation details of SFF-mean and SFF-var are in Section 5.2. SFF
+amplitude envelopes obtained at several frequencies are cross-correlated across the channels for
+TDoA estimation in [14], in which the high SNR regions in the SFF amplitude envelopes and
+8
+
+===== PDF page 9 =====
+
+multiple evidences at several frequencies are jointly utilized for robust TDoA estimation. The
+details of implementation of this estimator, called SFF-env, are given in Section 5.3. In [18],
+the phase of SFF outputs is utilized for robust TDoA estimation just as STFT phase is used in
+GCC-PHAT. The estimator in [18] is referred as SFF-PHAT and is described in Section 5.4.
+Between spectral and excitation source features, the latter features are robust to noise and
+reverberation [8]. Therefore, we propose a modification to DoA estimator in [14] in which the ex-
+citation source features are used. The new SFF-based DoA estimator is described in Section 5.1
+and is referred as SFF-PHAT-env, in which SFF amplitude envelopes at various frequencies are
+cross-correlated with PHAT weighting. In this estimator, the high SNR regions at SFF amplitude
+envelopes, multiple evidences at several frequencies and robust PHAT weighting are exploited for
+accurate DoA estimation.
+5.1. Proposed SFF-Based DoA Estimator: SFF-PHAT-env
+The key idea in SFF-PHAT-env estimator is to cross correlate SFF outputs of the microphone
+signals at several corresponding frequencies using PHAT weighting. The advantage of the SFF
+output is that it has high signal-to-noise regions in both time and frequency domains. Further, this
+estimator gives multiple evidences, one from each of the SFF output frequencies. These multiple
+evidences are combined to obtain robust DoA estimates. Additionally, the PHAT weighting makes
+it robust in adverse conditions. Figure 4 shows the block diagram of SFF-PHAT-env implementa-
+tion.
+Figure 4: Block diagram of the proposed SFF-based DoA estimator: SFF-PHAT-env. The grey block is the modified
+block when compared to the SFF-env implementation. The GCC-PHAT operation is presented in Equation (30); the
+objective function is defined in Equation (11); and the DoA can be estimated from the TDoA as described in Section 2.
+Lete 1[k,n] ande 2[k,n] be the SFF amplitude envelopes obtained at thek th frequency of two
+microphone signalsx 1[k,n] andx 2[k,n] respectively. At each frequencyk, the amplitude envelopes
+at the two channels are correlated with PHAT weighting, resulting in a cross correlation function
+as follows:
+JSFF-PHAT-env[τ(θ),k,b]=GCC-PHAT(e 1[k,n],e 2[k,n]),(11)
+9
+
+===== PDF page 10 =====
+
+where GCC-PHAT is defined in Equation (30).J SFF-PHAT-env[τ(θ),k,b] at each frame are summed
+across frequencies as:
+JSFF-PHAT-env[τ(θ),b]=
+KS FFX
+k=1
+JSFF-PHAT-env[τ(θ),k,b].(12)
+At each time frameb, the peak location inJ SFF-PHAT-env[τ(θ),b] is estimated, indicating the DoA
+of an active speaker in that time frame (frame-wise DoA) as:
+ˆθ(b)=arg max
+θ
+JSFF-PHAT-env[τ(θ),b].(13)
+The frame-specific DoA estimates ˆθ(b) are used to obtain a histogram. The peak locations in
+the histogram represent the source DoA estimates. It is assumed that the number of speakers is
+knowna priori. The locations of a few top peaks (corresponding to the number of speakers) in
+the histogram indicate the DoA of the sources in the mixture. A graphical illustration of obtaining
+source DoAs from histogram of frame-wise DoA estimates is shown in Figure 9.
+5.2. SFF-mean and SFF-var
+The key idea of these estimators, which are proposed in [1], is to exploit the high SNR re-
+gions in the SFF representation for robust DoA estimation. It is observed that spectral features
+derived from SFF representation highlight the high SNR regions. In particular, the spectral fea-
+tures explored are the mean and variance of the SFF amplitude envelopes across frequencies. It is
+demonstrated in Figure 5 that the mean and variance capture the high SNR regions. Figure 5 (a)
+shows a segment of voiced speech, 5 (b) and (c) show the mean and variance (across frequencies)
+of its SFF amplitude envelopes. From Figure 5 (b), it is evident that the meanµ[n] captures high
+SNR regions - the peaks in spectral mean are indicators of high SNR regions. This is because
+high energy impulse-like excitations, when averaged across frequencies, lead to peaks. On the
+other hand, the valleys in spectral varianceσ 2[n] are indicators of high SNR regions. This is be-
+cause an impulse-like excitation has a flat spectrum, leading to low values in the variance across
+frequencies.
+The mixture signals collected at the microphones are transformed into SFF representation.
+Subsequently, spectral features obtained from the temporal amplitude envelopes across frequencies
+are correlated across the channels to get robust DoA estimates in real acoustic environments. The
+DoA estimators implemented using spectral mean and variance are called SFF-mean and SFF-var,
+respectively [1]. The implementation details of these DoA estimators are described next.
+5.2.1. DoA Estimator from Mean Spectral feature in SFF Representation: SFF-mean
+In Figure 6(a), a block diagram implementation of SFF-mean is shown. Spectral meanµ[n] is
+the mean of the SFF amplitude envelopes and is given by:
+µ[n]= 1
+KS FF
+KS FFX
+k=1
+e[k,n].(14)
+10
+
+===== PDF page 11 =====
+
+-0.5
+0
+0.5
+(a) A voiced speech segment
+0.75
+0.8
+0.85
+0.9
+0.95
+1
+(b) SFF (r=0.995)
+100 200 300 400 500 600
+Time (samples)
+0.5
+0.6
+0.7
+0.8
+0.9
+1
+(c) SFF (r=0.995)
+Figure 5: (a) A segment of voiced speech. (b) Mean of SFF amplitude envelopes of the voiced segment in (a). (c)
+The variance of SFF amplitude envelopes of the voiced segment in (a). SFF amplitude envelopes are obtained with
+KS FF =256 anda=0.995. It is observed that the mean and variance spectral features highlight the locations of high
+SNR impulse-like excitations present in the voiced segment. The peaks in (b) and the valleys in (c) coincide with the
+occurrence of impulse-like events in (a).
+The spectral means obtained at two microphonesµ 1[n] andµ 2[n] are correlated using GCC-PHAT
+to obtain the cross correlation functionJ SFF-mean[τ(θ),b]:
+JSFF-mean[τ(θ),b]=GCC-PHAT(µ 1[n], µ2[n]).(15)
+At each time frameb, the peak location inJ SFF-mean[τ(θ,b)] is estimated, indicating the DoA of an
+active speaker in that time frame (frame-wise DoA) as:
+ˆθ(b)=arg max
+θ
+JSFF-mean[τ(θ),b].(16)
+Histogram of frame-wise DoA estimates ˆθ(b) is obtained. The peak locations in the histogram
+correspond to the source DoA estimates as described in Section 5.1.
+5.2.2. SFF-var
+In Figure 6(b), a block diagram implementation of SFF-var is shown. The spectral variance is
+calculated from normalized amplitude envelope ˆe[k,n] and is given by:
+σ2[n]= 1
+KS FF
+KS FFX
+k=1
+(ˆe[k,n]−ˆµ[n])2,(17)
+11
+
+===== PDF page 12 =====
+
+Figure 6: Block diagrams of the existing SFF-based DoA estimators: (a) SFF-mean [1], (b) SFF-var [1], (c)SFF-env
+[14], and (d) SFF-PHAT [24]. ˆeand ˆµare defined in Section 5.2.2. ˆθ[b] can be estimated from ˆτ[b] as described in
+Section 2.
+where ˆe[k,n]= e[k,n]
+PKS FF
+k=1 e[k,n]
+and ˆµ[n]= 1
+KS FF
+KS FFP
+k=1
+ˆe[k,n]= 1
+KS FF
+, as the envelopes are normalized
+across frequency at each time instant. The spectral variances obtained at two microphones (σ 2
+1[n]
+12
+
+===== PDF page 13 =====
+
+andσ 2
+2[n]) are correlated using GCC-PHAT to obtain the cross correlation functionJ SFF-var[θ,b]
+as:
+JSFF-var[τ(θ),b]=GCC-PHAT(σ 2
+1[n], σ2
+2[n]).(18)
+At each time frameb, the peak location inJ SFF-var[τ(θ),b] is estimated, indicating the time delay
+of an active speaker in that time frame as:
+ˆθ(b)=arg max
+θ
+JSFF-var[τ(θ),b].(19)
+The frame-specific DoA estimates ˆθ(b) are used to obtain a histogram. The peak locations in
+the histogram correspond to the source DoA estimates as described in Section 5.1.
+In Figure 7, high SNR spectral features for two concurrent speakers is illustrated. SFF spec-
+-0.2
+0
+0.2
+0.4
+(a) Speaker1
+-1
+0
+1
+(c) Speaker2
+-0.5
+0
+0.5
+(e) Mixture of Speaker1 and Speaker2
+20
+40
+60
+(b) SFF spectral mean of Speaker1
+100
+150
+200
+(d) SFF spectral mean of Speaker2
+3310 3315 3320 3325 3330 3335 3340 3345 3350 3355 3360
+50
+100
+(f) SFF spectral mean of (e)
+Time (ms)
+Figure 7: (a) and (c) show a voiced segment of Speaker 1 and 2 respectively; (b) and (d) show the mean of SFF
+amplitude envelopes of Speaker 1 and 2 shown in (a) and (c); (e) shows the segment with both Speaker 1 and Speaker
+2 active; and (f) shows the mean of SFF amplitude envelopes derived from (e). (adapted from [1]).
+tral mean property on voiced segments of two concurrent speakers is shown in the figure. In a
+simulated room environment, two concurrent speakers’ data is captured by a pair of microphones
+1m apart. The plots in the figure are obtained from the signals at one of the microphones. Figure
+7(a) shows a voiced segment of a speaker 1. SFF spectral mean of the voiced segment of speaker
+one is plotted in Figure 7(b), in which the red markers highlight the time instants of occurrence
+of impulse-like events of speaker 1. Figure 7(c) shows a voice segment of Speaker 2 and Figure
+13
+
+===== PDF page 14 =====
+
+7(d) shows SFF spectral mean of speaker 2. The instants of impulse-like excitations of speaker 2
+are in blue markers. The concurrent speech of speaker one and speaker two is shown in Figure
+7(e). Figure 7(f) is the SFF spectral mean of the mixture signal in 7(e). High SNR regions of
+speakers 1 and 2 are highlighted by red and blue markers, respectively, which correspond to the
+peaks of the spectral mean. It may be observed from Figure 7(e) and Figure 7(f) that while the
+peaks in Figure 7(f) are prominent, such prominent peaks are absent in Figure 7(e). Further, the
+red and blue markers shown in Figure 7(f) are aligned across the plots in Figure 7(b) and Figure
+7(d), respectively, implying that the impulse-like events of the two speakers in 7(f) closely match
+those of individual speakers. Since spectral means in 7(f)) highlight the impulse-like events (where
+the effects of noise and reverberation are reduced), correlation of spectral means across the chan-
+nels would result in more prominent peaks in the cross correlation function than the correlation
+of mixture signals (Figure 7(e)). Cross correlation of SFF spectral variance would also result in
+prominent peaks, but instead of peaks in SFF mean, the valleys in spectral variance correspond to
+impulse-like events.
+5.3. SFF-env
+The key idea in SFF-env estimator, which is proposed in [14], is to cross correlate correspond-
+ing SFF outputs of the microphone signals at several frequencies, rather than using the waveforms
+directly. The advantage of the SFF output is that it will have high signal-to-noise regions in both
+time and frequency domains. Also, this estimator gives multiple evidences, one from each of the
+SFF outputs. These multiple evidences are combined to obtain robust DoA estimates. Figure 8
+illustrates that the SFF amplitude envelopes at various frequencies have emphasized high SNR
+regions. The figure shows a segment of voiced speech, and SFF envelopes at 500 Hz, 1000 Hz,
+2000 Hz, and 3000 Hz. It is observed that amplitude envelopes at various frequencies highlight
+the impulse-like locations.
+In Figure 6(c), a block diagram implementation of SFF-env is shown. Typically, cross correla-
+tion function at each frequencykis estimated on overlapping frames of amplitude envelopes with
+frame length between 50 ms to 500 ms so that each frame contains at least a few pitch periods
+to obtain a good time delay estimate [8]. Smaller frame lengths lead to better tracking, while the
+larger frame lengths give more accurate estimates. Lete 1b[k,n] ande 2b[k,n] be two corresponding
+frames each of lengthNsamples atk th frequency bin. The cross correlation function of these
+frames is given by:
+JSFF-env[τ(θ),k,b]=
+N−1X
+n=0
+e1b[k,n]e 2b[k,n+τ(θ)],−T max ≤τ(θ)≤T max,(20)
+whereT max is the maximum time-delay between the given pair of microphones. The cross corre-
+lation function is estimated at each framebwhere 0≤b≤B. Each block begins atb∆T, where
+∆Tis the hop size in samples.J SFF-env[τ(θ),k,b] at each frame are summed across frequencies as:
+JSFF-env[τ(θ),b]=
+KS FFX
+k=1
+JSFF-env[τ(θ),k,b].(21)
+14
+
+===== PDF page 15 =====
+
+Figure 8: (a) A segment of voiced speech. (b) to (e) shows SFF amplitude envelopes computed at 500 Hz, 1000 Hz,
+2000 Hz, and 3000 Hz, respectively. It is observed that the information of high SNR regions is present at various
+frequencies.
+The location of the peak inJ SFF-env[τ(θ),b] at each time frame is estimated as:
+ˆθ(b)=arg max
+θ
+JSFF-env[τ(θ),b].(22)
+The frame-specific DoA estimates ˆθ(b) are used to obtain a histogram. The peak locations in the
+histogram correspond to the source DoA estimates as described in Section 5.1.
+5.4. SFF-PHAT
+While the DoA estimators like SFF-mean, SFF-var and SFF-env exploit amplitude envelopes
+of the SFF outputs, SFF-PHAT exploits the phase of SFF outputs and is proposed in [18]. The
+idea behind SFF-PHAT DoA estimator is to get better DoA estimates by using only the phase
+information as in the case of standard GCC-PHAT. While GCC-PHAT is performed in STFT
+domain, SFF-PHAT is performed in SFF domain.
+In Figure 6(d), a block diagram implementation of SFF-env is shown. Ify 1[k,n] andy 2[k,n]
+correspond to thek th component of the complex SFF output from two microphone signals at time
+15
+
+===== PDF page 16 =====
+
+instantn, then the cross correlation function obtained at each time instant is:
+JSFF-PHAT[τ(θ),n]=
+KS FFX
+k=1
+y1[k,n]y ∗
+2[k,n]
+|y1[k,n]||y ∗
+2[k,n]| e−j2πf kτ(θ),(23)
+wheref k is the frequency (in Hertz) corresponding to thek th bin. The location of the peak in
+JSFF-PHAT[τ(θ),n] at each time instant is estimated as:
+ˆθ(n)=arg max
+θ
+JSFF-PHAT[τ(θ),n].(24)
+The instantaneous DoA estimates ˆθ(n) are used to obtain a histogram from which source DoA
+estimates are obtained as described in Section 5.1.
+An illustration of the method of using frame wise ˆθ(b) or instantaneous DoA estimates ˆθ(n) to
+obtain the source DoA estimates is in Figure 9. A stereo recording from SiSEC database (described
+in Section 6.1 [25]) is used for this purpose. The specific recording chosen is that of 4 female
+concurrent speakers in a room with reverberation time (RT60=250 ms) collected at microphones
+1m apart. For Illustration, SFF-PHAT DoA estimator is chosen. However, any other SFF-based
+DoA estimator can be used. Figure 9 (a) shows the DoA estimates of active speakers at each
+instant. The histogram of instantaneous DoA estimates is shown in Figure 9 (b). The percentage
+of frames in which a speaker is detected is evident from the strength of the histogram peaks. It is
+observed from Figure 9 (b) that the speaker at 80 o is detected in about 6 percent of total instants,
+while the speaker at 105o is detected in about 36 percent of total instants.
+0 0.5 1 1.5 2
+Time (s)
+0
+20
+40
+60
+80
+100
+120
+140
+160
+180DoA in degrees
+(a)
+0 0.2 0.4
+Percentage of frames
+0
+20
+40
+60
+80
+100
+120
+140
+160
+180
+DoA in degrees
+(b)
+Figure 9: SFF-PHAT DoA estimator applied on a mixture from SiSEC database with 4 female speakers and reverber-
+ation time RT60=250 ms. (r) Angular spectrogram - shows the DoA estimates of active speakers per each instant.
+The DoA estimates obtained from histogram of instantaneous DoA estimates in (r) is shown in (b), which is called
+averaged angular spectrogram.
+16
+
+===== PDF page 17 =====
+
+6. Experimental Evaluations
+This section gives the details of data sets, baseline DoA estimators, parameters chosen for the
+DoA estimators, evaluation metrics and experiments conducted.
+6.1. Data
+This study uses two publicly available data sets consisting of real recordings - Signal Separa-
+tion and Evaluation Campaign (SiSEC) [25] and Challenge on acoustic source LOCalization And
+TrAcking (LOCATA) [26].
+6.1.1. SiSEC
+The development data of SiSEC (dev1anddev2), which consists ten under-determined stereo
+channel speech mixtures, is used. To generate the mixtures, first, each static source played through
+loudspeakers in a meeting room of dimensions 4.45m×3.55m×2.5m is recorded by omnidirec-
+tional, 1m apart pair of microphones. Subsequently, the static source recordings are added to
+generate the mixtures. The recordings are available with two reverberation times of 130 ms and
+250 ms. The DoA of speakers varies between 30 ◦ and 150 ◦ with respect to the array axis. The
+speakers are 1.2m away from the array. Each mixture is 10s long and consists of 3 or 4 concur-
+rently speaking speakers. These mixtures contain measurement and background noise because
+they are generated by mixing live recordings from a real room environment. The ground truth val-
+ues of DoAs of sources are available fordev1anddev2. In this study, the mixture data considered
+is 2s instead of 10s.
+6.1.2. LOCATA
+The two tasks in LOCATA that are considered in this study areTask1: DoA estimation of a
+single, static speaker using a static microphone array andTask2: DoA estimation of multiple static
+speakers using a static microphone array. Simultaneous recordings of static sources are collected at
+multiple microphone arrays in a real-world room environment. Static sources are the loudspeakers
+from which sentences selected from the CSTR VCTK database [27] are played back and the room
+is a computer laboratory with dimensions: 7.1m×9.8m×3m andRT60=550 ms. These signals
+are recorded by a non-uniformly spaced linear array of 13 microphones. In this study, a sub-array
+of two microphones with a separation of 1m is chosen.Task1has three recordings, andTask2has
+three recordings of two to four speakers, and the recordings are of duration 3s to 7s. The ground
+truth values of DoAs of sources are provided. This data set is useful for bench-marking various
+DoA estimators since the data is generated from live recordings in a highly reverberant room.
+6.2. Baseline DoA Estimators
+In this section, the baseline DoA estimators that are compared with the SFF-based DoA esti-
+mators are summarized. SFF-based DoA estimators exploit, primarily, excitation source features
+for DoA estimation. Hence, one of the comparison estimators chosen exploits excitation source
+features for DoA estimation, and it cross correlates the microphone signals after extracting the
+17
+
+===== PDF page 18 =====
+
+epoch locations. This estimator called Hilbert Envelope of Linear Prediction residual (HE-LP)
+is proposed in [8] and is explained in Section 6.2.1. The other comparison estimators are vari-
+ants of state-of-the-art GCC-based DoA estimators. Two of these are broadband estimators (GCC
+and GCC-PHAT), and the third one is a narrowband version of GCC called NarrowBand Steered
+Response Power with PHAT weighting (NB-SRP-PHAT). These estimators are described from
+Section 6.2.2 to Section 6.2.4.
+6.2.1. Hilbert Envelope of Linear Prediction Residual
+In HE-LP [8], the excitation source information is obtained from the microphone signals us-
+ing LP analysis [28]. Hilbert envelopes of the LP residual of the microphone signals are cross
+correlated to find the DoA estimates. Hilbert envelope of LP residual signall[n] is given by:
+h[n]=
+q
+l2[n]+l 2
+h[n],(25)
+wherel h[n] is the Hilbert transform ofl[n]. Leth 1[n] andh 2[n] be Hilbert envelopes of LP residuals
+of the signals at two microphones. Cross correlation is usually estimated on short frames of Hilbert
+envelopes of length between 50 ms to 500 ms [8]. Leth 1b[n] andh 2b[n] be two corresponding
+frames each of lengthNsamples. Then the cross correlation function of these frames is similar to
+Equation (20) and is given by:
+JHE-LP[τ(θ),b]=
+N−1X
+n=0
+h1b[n]h2b[n+τ(θ)],−T max ≤τ(θ)≤T max,(26)
+whereT max is the maximum time-delay between the given pair of microphones. The cross corre-
+lation function is estimated at each framebwhere 0≤b≤B. Each block begins atb∆T. The
+location of the peak inJ HE-LP[θ,b] at each time frame is estimated as:
+ˆθ(b)=arg max
+θ
+JHE-LP[τ(θ),b].(27)
+The frame specific DoA estimates ˆθ(b) are used to obtain a histogram. The peak locations in the
+histogram correspond to the source DoA estimates as described in Section 5.2.1.
+6.2.2. Generalized Cross Correlation (GCC)
+The cross correlation of filtered versions of the signals is called Generalized Cross Correlation
+function [7]. The GCC functionJ GCC[τ(θ),b] is given by:
+JGCC[τ(θ),b]=
+X
+k
+W(k)X 1[k,b]X ∗
+2[k,b]e −j2πf kτ(θ),(28)
+whereW(k) is the weight function,X 1[k,b] andX 2[k,b] are the STFT ofx 1[n] andx 2[n] respec-
+tively andf k is the frequency (in Hertz) corresponding to thek th bin. Different weight functions
+are investigated in [7]. In this study, we consider two variants of GCC as baseline DoA esti-
+mators. One withW(k)=1 and referred to as GCC and the other is PHAT weighting, which is
+described in Section 6.2.3 and referred to as GCC-PHAT. At each time frameb, the peak location
+18
+
+===== PDF page 19 =====
+
+inJ GCC[τ(θ),b] is estimated, indicating the DoA of an active speaker in that time frame as:
+ˆθ(b)=arg max
+θ
+JGCC[τ(θ),b].(29)
+The frame specific DoA estimates ˆθ(b) are used to obtain a histogram. The peak locations in the
+histogram correspond to the source DoA estimates as described in Section 5.2.1.
+6.2.3. Generalized Cross Correlation with Phase Transform Weighting (GCC-PHAT)
+The signals obtained at two microphones,x 1[n] andx 2[n], are correlated using GCC-PHAT to
+obtain the cross correlation functionJ GCC-PHAT[τ(θ),b] [7]:
+JGCC-PHAT[τ(θ),b]=GCC-PHAT(x 1[n],x 2[n])=
+X
+k
+X1[k,b]X ∗
+2[k,b]
+|X1[k,b]||X ∗
+2[k,b]| e−j2πf kτ(θ),(30)
+whereX 1[k,b] andX 2[k,b] are the STFT ofx 1[n] andx 2[n] respectively andf k is the frequency (in
+Hertz) corresponding to thek th bin. At each time frameb, the peak location inJ GCC-PHAT[τ(θ),b]
+is estimated, indicating the DoA of an active speaker in that time frame as:
+ˆθ(b)=arg max
+θ
+JGCC-PHAT[τ(θ),b].(31)
+The frame specific DoA estimates ˆθ(b) are used to obtain a histogram. The peak locations in the
+histogram correspond to the source DoA estimates as described in Section 5.2.1. GCC-PHAT
+may also be referred to as BroadBand Steered Response Power with PHAT weighting (BB-SRP-
+PHAT).
+6.2.4. Narrowband Steered Response Power with Phase Transform Weighting (NB-SRP-PHAT)
+In broadband estimators such as GCC and GCC-PHAT, a DoA estimate is obtained in each
+frame. Whereas in narrowband estimators, a DoA estimate is obtained for each TF bin [13]. In
+both broadband and narrowband estimators, the local DoAs are subsequently clustered to obtain
+the target DoA. In NB-SRP-PHAT, the target DoA is found from histogram of the local DoA
+estimates at each TF bin.
+The DoA estimate is obtained at a time frameband frequency binkas follows:
+JNB-SRP-PHAT[τ(θ),k,b]= X1[k,b]X ∗
+2[k,b]
+|X1[k,b]||X ∗
+2[k,b]| e−j2πf kτ(θ).(32)
+At each TF bin, the peak location inJ NB-SRP-PHAT[τ(θ),k,b] is estimated, indicating the DoA of an
+active speaker in that TF bin as:
+ˆθ(k,b)=arg max
+θ
+JNB-SRP-PHAT[τ(θ),k,b].(33)
+A histogram of DoA estimates at each TF bin ( ˆθ(k,b)) is obtained. The locations of the peaks in
+the histogram are the required source DoA estimates.
+19
+
+===== PDF page 20 =====
+
+6.3. Evaluation Metrics
+The evaluation metrics chosen are two detection metrics: (i) percentage of frames in which
+speakers are detected (α) and (ii) F-measure, and two location accuracy metrics: (i) mean azimuth
+error (MAE) and (ii) MAEfine.αis obtained from histogram plots by dividing the number of
+frames in which a source is detected to the total number of frames as mentioned in Equation 34
+and is obtained as:
+α= no.o f f rames in which a speaker is correctly estimated
+total no.o f f rames .(34)
+Higher the value ofα, better are the tracking abilities of the DoA estimator. F-measure is defined
+as follows: In a given data set, letN T be the total number of sources in all mixture files and
+Ne be the number of sources that are estimated by an estimator. By greedy matching algorithm,
+the estimated DoAs for each mixture are matched to the ground truth DoAs to ensure minimum
+azimuth error. The source is said to becorrectlyestimated if after matching, the estimated source
+DoA is within±5 ◦ of the ground truth DoA. LetN c be the number of sources correctly estimated
+for all mixtures. Then the F-measure is given by:
+F-measure= 2∗Recall∗Precision
+Recall+Precision ,(35)
+where, Recall=N c/NT and Precision=N c/Ne. The more the number of sources correctly esti-
+mated, the higher the F-measure. To quantify the DoA estimation accuracy, two error metrics are
+reported: MAE and MAEfine. MAE is the mean azimuth error between the estimated DoAs and
+true DoAs after greedy matching, and MAEfine is the mean error between thecorrectlyestimated
+DoAs and true DoAs. Thus, while MAE gives estimation accuracy over all the sources in the mix-
+ture, MAEfine gives estimation accuracy of only thecorrectlydetected sources. Therefore, MAE
+may be considered as a global performance metric, whereas MAEfine is a local performance crite-
+rion with respect to correctly detected sources. For a better performing DoA estimator, F-measure
+andαwould be high, and MAE and MAEfine would be low.
+6.4. Parameter Setting
+In order to fairly compare the SFF-based DoA estimators with the GCC-based DoA estimators,
+it is necessary to set the parameters to obtain TF representations of SFF and STFT methods. That
+is, for example, it is not correct to use a small number of frequency bins for STFT analysis and a
+large number for SFF analysis. It has to be ensured that the window sizes and other parameters
+are chosen in a systematic way. To attain these comparable parameters, it is useful to interpret
+STFT as afilteringoperation. Implementation of STFT as afilteringoperation is presented in
+Section 6.4.1. In Section 6.4.2, the method to obtain comparable parameters for SFF and STFT
+TF representations is presented.
+20
+
+===== PDF page 21 =====
+
+6.4.1. Short-Time Fourier Transform of Speech Signals by Filtering
+The STFT of a causal sequencex[n] is a sequence of Fourier transforms of the windowedx[n]
+and is given by:
+X(k,b)=
+∞X
+n′=0
+(x[n′]f st f t(n′ −b∆T))e −jω kn′
+,(36)
+wheref STFT[n] is the STFT analysis window and is usually chosen to have finite temporal duration
+ofNsamples and low-pass frequency response. 0≤k≤K−1 and 0≤b≤B−1, whereKis
+the number of DTF points andBis the number of time frames. Due to conjugate symmetry of the
+discrete Fourier transforms for real-valued signals, only K
+2 +1 frequency bins are used. Theb th
+time frame begins at the sample index given byb∆T, where∆Tis the STFT hop size in samples.
+In this study, Hann window is used.
+Apart from the common procedure of obtaining STFT representation of speech signals that is
+described above, another equivalent procedure to get STFT representation is by using afilterin-
+terpretation as follows: the frequency shifted signalx[n ′]e−jω kn′
+is passed through a time reversed
+(or flipped) filter with impulse responsef STFT(n). The frequency is shifted down to 0 Hz by modu-
+lating withe −jω kn in the time domain. This interpretation of STFT in mathematical form is (equal
+to Equation (36)):
+X(k,b)=
+∞X
+n′=0
+(x[n′]e−jω kn′
+)f STFT(n′ −b∆T)=(x[m]e −jω km)∗Flip(f STFT(m)),(37)
+wherem=b∆T,∗is convolution operation andf STFT(n) is now viewed as the impulse response
+of an FIR filter with filter lengthN.Flipis the time-reversed version of the filter and for a
+symmetrical windowFlip(f STFT(n))=f STFT(n). As the value ofNincreases, the 3 dB bandwidth
+of frequency responseB S T FT decreases. For a Hann window, the filter lengthN(in samples) and
+the 3dBbandwidth of the filterB S T FT (inHz) are inversely related byB S T FT = 1.44f s
+N [29].
+While in SFF,x[n] is frequency shifted to fs
+2 Hz (by multiplying with a complex exponential)
+and passed through a filter with infinite impulse responsef SFF[n]=(−r) nu[n], in STFT, the signal
+frequency shifted to 0 Hz and passed through a filter with finite impulse response ofNsamples
+(Hann function). In SFF, outputs of the filter are obtained atK S FF frequencies lying between 0
+and fs
+2 . Similarly, the STFT outputs may be obtained atK S T FT frequencies lying between 0 and fs
+2 .
+6.4.2. Method Adapted to get SFF and STFT parameters
+In this section, the procedures adapted for setting the parameters of nine DoA estimators are
+described. Of the nine DoA estimators, 5 are implemented in SFF TF representation (SFF-PHAT-
+env, SFF-mean, SFF-var, SFF-PHAT, SFF-env), 3 are implemented in STFT TF representation
+(GCC, GCC-PHAT, NB-SRP-PHAT) and 1 is implemented in time domain (HE-LP). For a fair
+comparison, SFF and STFT TF representations are obtained such that the band width of the re-
+spective filters and the number of frequency bins in each representation are the same. Table 1
+summarizes the relations between the window parameters and the 3 dB bandwidths in SFF and
+STFT TF representations.
+Setting ofK S FF andK S T FT:To choose suitable values ofK S FF andK S T FT, we test the perfor-
+21
+
+===== PDF page 22 =====
+
+Table 1: Method to get equivalent SFF and STFT parameters. The parametersrandNare set such thatB S FF=BS T FT,
+andK S FF is set equal toK S T FT.
+SFF STFT
+Parameters in the TF representation randK S FF NandK S T FT
+Relation between time domain filter parameters
+(r&N) and the respective frequency
+domain parameters (BS FF&BS T FT)
+BS FF = fs
+2π cos−1   4r−r2−1
+2r
+ [23] BS T FT = 1.44f s
+N [29]
+mance of a SFF-based and GCC-based methods for various values ofK S FF (128≤K S FF ≤512)
+withrandNfixed and choose the value resulting in best metrics. We fixed the upper limit of
+KS FF andK S T FT to 512 to keep the computational complexity low. AsK S FF andK S T FT increase,
+computational complexity in terms of computation time and memory requirements also increases.
+Specifically,K S FF andK S T FT are chosen based on the performance (F-measure,α, MAE) of var-
+ious DoA estimators on LOCATA data. It is observed that the value of MAEfine does not change
+significantly with varyingK S FF/S T FT. Hence, MAEfine metric is not used for performance evalu-
+ation. Table 2 gives the performance of SFF-based and GCC-based DoA estimators for different
+values ofK S FF/KS T FT withr=0.99887 andN=8000 (500ms) respectively corresponding to
+3 dB bandwidth of≈3Hz.
+Table 2: Table to choose a suitable value forK S FF andK S T FT. F-measure, MAE, andαfor various DoA estimators
+for varyingK S FF andK S T FT on LOCATA. The 3 dB bandwidth of the filters used is 3 Hz. The best metrics for each
+DoA estimator among differentKare highlighted inbold.
+KS FF=KS T FT 128 256 512
+SFF-based DoA estimators (r=0.99887 &B S FF =3Hz)
+F-mea MAE α F-mea MAE α F-mea MAE α
+-sure -sure -sure
+SFF-env 0.48 10.07 27 0.38 10.75 30 0.38 14.81 28
+SFF-PHAT-env 0.40 10.99 33 0.40 10.99 35 0.40 10.77 35
+SFF-PHAT 0.40 10.65 36 0.40 10.65 39 0.40 10.65 42
+SFF-mean 0.38 15.39 24 0.38 14.25 29 0.38 10.88 33
+SFF-var 0.31 22.82 19 0.38 14.60 22 0.46 11.69 28
+GCC-based DoA estimators (N=8000 (500 ms) &B S T FT =3Hz)
+GCC 0.38 14.75 29 0.38 13.80 35 0.46 12.69 36
+GCC-PHAT 0.38 10.65 44 0.38 10.65 45 0.46 12.44 46
+NB-SRP-PHAT 0.38 19.7 NA 0.31 17.34 NA 0.38 14.60 NA
+From the table, it is observed that in most of the cases the performance metrics increase or
+remain constant with increasingKvalues. The best metrics for each DoA estimator are highlighted
+inboldand are obtained at 512. Hence we choseK S FF =K S T FT =512.
+Setting ofB S FF andB S T FT:In literature, for TDoA estimation of signals at two microphones,
+the signals are divided into frames of size of a few hundred milliseconds (ranging from 50 ms to
+500 ms) [8, 30]. The choice of the frame size is dictated by the application-while small frame
+22
+
+===== PDF page 23 =====
+
+size is suitable for tracking, a large frame size would improve the performance of the TDoA
+estimators. In this study, to choose an appropriate frame size, we test all the baseline estimators
+with varying frame sizes (N varying from 64 ms to 500 ms) on LOCATA data. For every N, we
+find a correspondingr, such thatB S FF =B S T FT and test the performance of various SFF-based
+estimators. In Table 3, the performance metrics of various DoA estimators with increasingNand
+the correspondingrare shown. It is observed from the table that the performance of the estimators
+improve as therandNincreases and it is inline with the theory that increasing frame size lead to
+improved DoA estimates. The best metrics are obtained for the case ofN=8000 andr=0.99887.
+Hence in the following experiments we fixN=8000 andr=0.99887.
+Table 3: Table to choose suitable values forrandN. F-measure, MAE, andαfor various DoA estimators for varying
+randNon LOCATA. The values ofrandNare chosen such that,randNin the same column result in equal 3 dB
+bandwidth of SFF and STFT filters (B S FF =B S T FT).K S FF =K S T FT =512. The best metrics among the differentr
+andNfor each DoA estimator are highlighted inbold.
+SFF-based DoA estimators(KS FF =512)
+r= 0.99125 0.99718 0.99859 0.99887
+F-mea MAE α F-mea MAE α F-mea MAE α F-mea MAE α
+-sure -sure -sure -sure
+SFF-env 0.38 10.35 17 0.38 10.86 21 0.38 15.33 27 0.38 14.81 28
+SFF-PHAT-env 0.38 11.05 20 0.38 10.9 28 0.40 10.99 33 0.40 10.77 35
+SFF-PHAT 0.40 10.65 14 0.40 10.65 30 0.40 10.65 39 0.40 10.65 42
+SFF-mean 0.38 10.69 15 0.38 10.69 22 0.38 11.26 29 0.38 10.88 33
+SFF-var 0.46 13.79 14 0.38 11.26 22 0.38 15.19 26 0.46 11.69 28
+GCC-based DoA estimators(KS T FT =512)
+N= 1024(64 ms) 3200(200 ms) 6400(400 ms) 8000(500 ms)
+GCC 0.38 10.77 21 0.38 10.77 28 0.46 12.68 34 0.46 12.69 36
+GCC-PHAT 0.38 10.65 35 0.38 10.65 42 0.46 12.44 45 0.46 12.44 46
+NB-SRP-PHAT 0.38 20.8 NA 0.31 20.7 NA 0.31 25 NA 0.38 14.60 NA
+Further, in HE-LP (LP residual is obtained on 20msframe) and SFF-env, cross-correlation is
+performed with frame size of 8000 samples. In the SFF-based DoA estimators, after obtaining
+the SFF TF representation of the microphone signals, GCC-PHAT of either the envelopes (as in
+SFF-PHAT-env) or the spectral features (as in SFF-mean, SFF-var) is performed. In these cases,
+STFT is obtained with the frame size=8000 samples, frame shift=80 samples and DFT points=
+8000. From the 4000 bins corresponding to frequencies 0 to fs
+2 , equally spaced 512 bins are used
+for GCC-PHAT.
+6.5. Experimental Details
+In all the experiments, stereo microphones with inter microphone spacing of 1mare con-
+sidered. The recordings used for the experiments are captured at the microphones in real room
+acoustic environments as described in Section 6.1. Therefore, the microphone signals in SiSEC
+and LOCATA are corrupted by room reverberation and background noise. Further, the SiSEC mi-
+crophone data is corrupted by adding different types of uncorrelated noises (white, pink, machine
+gun, volvo, and babble) at SNR of 0dBtaken from NOISEX database [31].
+23
+
+===== PDF page 24 =====
+
+7. Results and Discussion
+This section presents the results of the experiments described in Section 6.5, along with a dis-
+cussion. In Section 7.1, performance comparison of SFF-based (SFF-env, SFF-PHAT-env, SFF-
+PHAT, SFF-mean and SFF-var) and baseline DoA (GCC, GCC-PHAT, NB-SRP-PHAT and HE-
+LP) estimators on SiSEC and LOCATA data sets is presented in terms of the evaluation metrics
+discussed in Section 6.3. In addition, to study the effect of DoA estimators on noisy speech, the
+DoA estimators are tested on SiSEC recordings corrupted with different types of noises in Sec-
+tion 7.2. Also, a graphical illustration of the performance of various DoA estimators on SiSEC and
+noisy SiSEC data is presented for one randomly chosen recording. AweightedGCC-PHAT DoA
+estimator is implemented and tested on the noisy data with the idea of comparing its performance
+with the best performing SFF-based estimators.
+7.1. Results and Discussion of Experiments Conducted on SiSEC and LOCATA Data
+Table 4 gives the results of SFF-based (SFF-env, SFF-PHAT-env, SFF-PHAT, SFF-mean and
+SFF-var) and baseline DoA estimators (GCC, GCC-PHAT, NB-SRP-PHAT and HE-LP) on SiSEC
+and LOCATA data sets. Except in NB-SRP-PHAT, in all the estimators, the position of r single
+peak in the correlation function (indicating dominant speaker per frame) is detected in each frame
+for calculatingα. But for NB-SRP-PHAT, a speaker may be detected multiple times in a single
+frame. Therefore,αis not reported for NB-SRP-PHAT.
+From the results on SiSEC (Table 4), it is clearly observed that among the SFF-based DoA
+Table 4: Performance comparison of SFF-based (SFF-env, SFF-PHAT-env, SFF-PHAT, SFF-mean and SFF-var) and
+baseline (GCC, GCC-PHAT, NB-SRP-PHAT and HE-LP) DoA estimators in terms of F-measure, MAE, MAEfine
+andαon SiSEC and LOCATA data. The two best metrics among various estimators are highlighted inbold.
+SFF - based DoA estimators Baseline DoA estimators
+SFF- SFF- SFF- SFF- SFF- GCC GCC- NB- HE-LP
+env PHAT- PHAT mean var PHAT SRP-
+env PHAT
+SiSEC
+F-measure 1.00 1.00 1.00 0.94 0.81 0.86 0.97 0.86 0.70
+MAE 1.07 0.79 0.78 3.24 5.24 2.67 1.33 8.28 9.15
+MAEfine 1.07 0.77 0.77 0.88 1.15 0.60 0.83 1.20 0.77
+α 59 87 96 69 58 66 97 NA 50
+LOCATA
+F-measure 0.38 0.40 0.40 0.38 0.46 0.46 0.46 0.38 0.46
+MAE 14.81 10.77 10.65 10.88 11.69 12.69 12.44 14.60 13.24
+MAEfine 3.33 3.91 3.56 3.86 3.06 3.52 3.72 4.33 3.65
+α 28 35 42 33 28 36 46 NA 27
+estimators, SFF-PHAT is the best performing estimator in terms of all metrics. It is followed
+by SFF-PHAT-env. SFF-var is the least performing estimator in terms of all metrics. Among
+24
+
+===== PDF page 25 =====
+
+the baseline DoA estimators, GCC-PHAT is the best performing in all the metrics. GCC is the
+next best. HE-LP and NB-SRP-PHAT perform poorly. Between the best SFF-based and baseline
+estimators, SFF-PHAT and GCC-PHAT give comparable results and closely followed by SFF-
+PHAT-env.
+From the results of LOCATA (Table 4), the following points are evident. The performance of
+all the DoA estimators degrades compared to the performance on SiSEC. This is because of the
+high reverberation time in LOCATA (up to 550 ms) compared to low reverberation time in SiSEC
+(up to 250 ms). Among the SFF-based DoA estimators, SFF-PHAT is the best performing estima-
+tor in terms of all metrics. It is followed by SFF-PHAT-env and SFF-mean. SFF-var and SFF-env
+are the least performing estimators especially in terms of the detection metricα. Among the base-
+line DoA estimators, GCC-PHAT is the best performing in terms of all metrics. NB-SRP-PHAT
+performs poorly. Among both SFF-based and baseline estimators, SFF-PHAT and GCC-PHAT
+are comparable. Combining SiSEC and LOCATA results, we make the following observations.
+The increasing order of performance of SFF-based DoA estimators is as follows:
+SFF-var≤SFF-env<SFF-mean≤SFF-PHA T -env<SFF-PHA T.
+The increasing order of performance of baseline DoA estimators is as follows:
+NB-SRP-PHA T≤HE-LP<GCC<GCC-PHA T.
+The reason for poor performance of NB-SRP-PHAT is that, it fails to provide a unique maxi-
+mum for for frequencies above the spatial aliasing frequency. As the inter-microphone distance
+increases, a larger range of frequencies are affected by spatial aliasing, and the efficacy of NB-SRP-
+based methods decreases. Between SFF-PHAT and GCC-PHAT, which are the best performing
+SFF-based and baseline DoA estimators, respectively, the performance of both the estimators is
+comparable in all metrics. The proposed estimator SFF-PHAT-env is the next best after SFF-PHAT
+and its performance is significantly better than SFF-env.
+7.2. Results of Experiments Conducted on Noisy SiSEC Data
+This section presents the effect of noise on the performance of DoA estimators. Different types
+of noise (white, babble, pink, volvo and machine gun) are added to SiSEC data at SNR of 0dB
+such that the noise at the two microphones is uncorrelated. Table 5 gives the metrics of SFF-based
+and baseline DoA estimators, averaged over three sets of simulations, on noisy SiSEC data. Each
+simulation set consists of ten recordings consisting of 36 speakers.
+It is observed from Table 5 that the performance of all the DoA estimators has degraded when
+compared to the performance on clean SiSEC data that is tabulated in Table 4. SFF-PHAT and
+SFF-PHAT-env are the best performing SFF-based estimators. GCC-PHAT is the best performing
+in the baseline estimators. In all the noises, SFF-PHAT has highest F-measure, lowest MAE and
+lowest MAEfine among all the estimators. Between the proposed SFF-PHAT-env and GCC-PHAT,
+in babble, volvo and machine gun noises, SFF-PHAT-env is superior in F-measure and MAE met-
+rics and have comparableα. In other noises they are comparable in terms of all metrics. Therefore
+it may stated that SFF-PHAT is the best performing among all the estimators and followed closely
+by SFF-PHAT-env and GCC-PHAT. The proposed SFF-PHAT-env is superior to SFF-env in all
+the metrics and in all the cases. HE-LP performs poorly because its performance mainly depends
+on the performance of linear prediction analysis, which deteriorates in low SNR conditions [32].
+The results clearly show that DoA estimation in SFF domain is superior to DoA estimation in the
+25
+
+===== PDF page 26 =====
+
+Table 5: Performance comparison of SFF-based (SFF-env, SFF-PHAT-env, SFF-PHAT, SFF-mean and SFF-var) and
+baseline (GCC, GCC-PHAT, NB-SRP-PHAT and HE-LP) DoA estimators in terms of F-measure, MAE, MAEfine
+andαon noisy SiSEC data. The noises (white, babble, pink, volvo and machine gun (M. gun)) are added at SNR=
+0 dB. The two best metrics among various DoA estimators are highlighted inbold.
+SFF - based DoA estimators Baseline DoA estimators
+SFF- SFF- SFF- SFF- SFF- GCC GCC- NB- HE-LP
+env PHAT- PHAT mean var PHAT SRP-
+env PHAT
+SiSEC+White
+F-measure 0.27 0.5 0.69 0.31 0.24 0.29 0.57 0.47 0.24
+MAE 19.96 16.28 10.54 19.89 20.32 19.49 11.76 25.53 21.64
+MAEfine 2.36 1.98 1.62 2.72 2.42 2.51 1.79 2.22 2.45
+α 4 17 10 9 6 8 17 NA 8
+SiSEC+Babble
+F-measure 0.78 0.91 0.93 0.54 0.46 0.69 0.74 0.65 0.30
+MAE 7.18 3.45 1.14 14.47 17.05 8.33 7.47 16.67 21.61
+MAEfine 1.56 1.62 0.79 2.01 2.41 0.85 0.93 1.54 1.66
+α 32 61 48 24 22 34 53 NA 10
+SiSEC+Pink
+F-measure 0.47 0.54 0.74 0.28 0.31 0.5 0.60 0.46 0.28
+MAE 16.5 11.34 8.03 19.05 26.95 14.31 11.37 25.64 18.43
+MAEfine 2.03 1.75 1.25 2.4 2.07 1.63 1.80 2.39 3.11
+α 13 24 12 8 10 18 17 NA 8
+SiSEC+V olvo
+F-measure 0.88 0.97 1 0.90 0.83 0.81 0.90 0.85 0.61
+MAE 4.24 0.95 0.78 4.11 5.43 2.59 4.16 9.12 14.54
+MAEfine 1.18 0.95 0.78 1.39 1.74 0.59 0.84 1.15 0.88
+α 48 87 93 60 54 58 96 NA 35
+SiSEC+M.Gun
+F-measure 0.87 0.97 1.00 0.86 0.82 0.85 0.86 0.82 0.67
+MAE 4.19 1.03 0.78 3.71 9.18 2.73 4.04 12.71 8.25
+MAEfine 1.31 1.03 0.78 1.55 1.89 0.69 0.85 1.12 1.09
+α 44 86 92 51 47 57 94 NA 37
+STFT domain. This point is better appreciated by comparing GCC-PHAT and SFF-PHAT. The
+only difference between these two DoA estimators is the TF representation. While GCC-PHAT is
+implemented in STFT domain, SFF-PHAT is implemented in SFF domain. Both the methods use
+phase information to find the DoAs. Among all the noises, the least performance degradation is
+observed in volvo and machine gun noises. Among the noises considered, the increasing order of
+the effect of noise on the performance of the DoA estimators is as follows:
+Volvo<Machine gun<Babble<Pink<White.
+To visualize the performance differences among various DoA estimators, the histogram plots
+26
+
+===== PDF page 27 =====
+
+obtained on a recording from the SiSEC database are plotted in Figure 10. The recording chosen
+is that of 4 concurrent female speakers in a room with a reverberation time of 250 ms. It is evident
+from the figure that most of the DoA estimators can detect multiple speakers because SiSEC data
+is with less reverberation (up to 250ms). Figure 11 shows the histogram plots on noisy SiSEC
+recording obtained by adding babble noise at SNR=0dB. As seen from the figure, SFF-PHAT
+and SFF-PHAT-env are the best DoA estimators with all the sources being correctly detected with
+less azimuth errors and goodα. In GCC-PHAT ,the source at 50 degrees is undetected due to
+spurious peak at around 20 degrees.
+0
+0.05
+0.1
+0.15
+0.2
+SFF-env
+0
+0.05
+0.1
+0.15
+0.2
+SFF-PHAT-env
+0
+0.05
+0.1
+0.15
+0.2
+SFF-PHAT
+0
+0.05
+0.1
+0.15
+0.2
+SFF-mean
+0
+0.05
+0.1
+0.15
+0.2
+SFF-var
+0
+0.05
+0.1
+0.15
+0.2
+GCC
+0 50 100 150
+0
+0.05
+0.1
+0.15
+0.2
+GCC-PHAT
+0 50 100 150
+DoA (degrees)
+0.005
+0.01
+0.015
+NB-SRP-PHAT
+0 50 100 150
+0
+0.05
+0.1
+0.15
+0.2
+HE-LP
+Figure 10: Histogram plots of various DoA estimators on a mixture from SiSEC database with 4 female speakers and
+RT60=250 ms. The chosen DoA estimator is indicated as the title of the subplot. Y-axis of all the DoA estimators,
+except that of NB-SRP-PHAT, representsα. The red dashed lines are the ground truth DoAs. SFF-PHAT is the best
+performing (with the highestα) and is followed closely by GCC-PHAT and SFF-PHAT-env.
+27
+
+===== PDF page 28 =====
+
+0
+0.05
+0.1
+0.15
+0.2
+SFF-env
+0
+0.05
+0.1
+0.15
+0.2
+SFF-PHAT-env
+0
+0.05
+0.1
+0.15
+0.2
+SFF-PHAT
+0
+0.05
+0.1
+0.15
+0.2
+SFF-mean
+0
+0.05
+0.1
+0.15
+0.2
+SFF-var
+0
+0.05
+0.1
+0.15
+0.2
+GCC
+0 50 100 150
+0
+0.05
+0.1
+0.15
+0.2
+GCC-PHAT
+0 50 100 150
+DoA (degrees)
+0.005
+0.01
+0.015
+NB-SRP-PHAT
+0 50 100 150
+0
+0.05
+0.1
+0.15
+0.2
+HE-LP
+Figure 11: Histogram plots of various DoA estimators on a mixture from SiSEC database with 4 female speakers and
+RT60=250 ms, corrupted with babble noise at SNR=0dB. The chosen DoA estimator is indicated as the title of the
+subplot. Y-axis of all the DoA estimators, except that of NB-SRP-PHAT, representsα. The red dashed lines are the
+ground truth DoAs. SFF-PHAT and SFF-PHAT-env are the best performing (all the speakers are detected, least MAE
+and MAEfine and highα). In GCC-PHAT, the source at 50 degrees is undetected due to a spurious peak at around 20
+degrees.
+28
+
+===== PDF page 29 =====
+
+7.3. Weighted DoA Estimators
+DoA estimators are susceptible to strong reverberation and noise. Many weighting functions
+have been proposed to emphasize the source dominant TF bins and to de-emphasize noise or
+reverberation dominant bins in order to improve the robustness of the DoA estimators as follows:
+Jmask[τ(θ),b]=
+X
+k
+ˆM(k,b) X1[k,b]X ∗
+2[k,b]
+|X1[k,b]||X ∗
+2[k,b]| e−j2πf kτ(θ),(38)
+where ˆM(k,b) represents the importance of (k,b) th bin for DoA estimation. High values represent
+source dominant bins, and low values correspond to noise or reverberation dominant bins.
+Several frequency-dependent weighting techniques are proposed for GCC-PHAT. In [33, 34,
+35, 36, 37], SNR-based weightings are used, where SNR is computed using either rule-based meth-
+ods or voice activity detection based algorithms or inter-channel coherence methods. However, the
+SNR weighting approach assumes stationary noise and fails in non-stationary noise scenarios. An-
+other approach to address this problem is by summing only the bins dominated by the direct path
+of the target source in the GCC-PHAT optimization function, where the direct-path dominant TF
+bins may be identified by deep learning [38]. In a recent contribution, [39], Non-negative Matrix
+Factorization (NMF)-based weighting is used to highlight single source dominant bins.
+As seen in Section 7.2, SFF-PHAT outperforms GCC-PHAT and SFF-PHAT-env is compa-
+rable to GCC-PHAT in the noisy SiSEC data. In this section, we test the robustness of the best
+performing SFF-based estimators by comparing them with an improved GCC-PHAT, which is ob-
+tained by NMF weighting. The NMF weighting as proposed in [39] is used in conjunction with
+GCC-PHAT(referred to as GCC-NMF), in which only the source dominant TF bins contribute
+towards DoA estimation. In Table 6, the performance of GCC-NMF is compared with the best
+performing SFF- and GCC- based methods in terms of F-measure, MAE, and MAEfine.αis not
+reported because in GCC-NMF, as in the NB-SRP-PHAT, a single source can be detected multiple
+times in the same frame as described in Section 7.1. The parameters in GCC-NMF are set as fol-
+lows: window size of 8000 samples, hop size=80 samples, dictionary size=55, and the penalty
+term=60. The window size is the same as that used for other DoA estimators. The DFT points
+are equal to the window size. After obtaining the STFT spectrogram, 512 discrete frequencies (as
+used in the other DoA estimators) equally spaced between 0 and 8000 Hz are chosen for further
+operations.
+From the table, it is observed that the performance of GCC-NMF is significantly better than its
+unweightedcounterpart the GCC-PHAT: F-measure is much higher, MAE is lower or comparable.
+The difference in MAEfine between the two methods is less than one degree. Further, SFF-PHAT
+has the lowest MAE and MAEfine in all the noises. F-measure of SFF-PHAT is slightly less
+in white noise but comparable in all the other noises. To summarize, SFF-PHAT seems to be
+performing better than GCC-NMF in most of the noises, thus proving the robustness of the SFF-
+PHAT DoA estimator.
+29
+
+===== PDF page 30 =====
+
+Table 6: Performance comparison of the best performing SFF-based (SFF-PHAT-env, SFF-PHAT) with GCC-PHAT
+and GCC-NMF DoA estimators in terms of F-measure, MAE, and MAEfine on noisy SiSEC data. The noises (white,
+babble, pink, volvo and machine gun (M. gun)) are added at SNR=0 dB. The best metrics amon the various DoA
+estimators are highlighted inbold.
+SFF - based Baseline Weighted
+DoA estimators DoA estimators GCC-PHAT
+SFF-PHAT-env SFF-PHAT GCC-PHAT GCC-NMF
+SiSEC+White
+F-measure 0.5 0.69 0.57 0.81
+MAE 16.28 10.54 11.76 12.71
+MAEfine 1.98 1.62 1.79 2.38
+SiSEC+Babble
+F-measure 0.91 0.93 0.740 0.92
+MAE 3.45 1.14 7.47 4.42
+MAEfine 1.62 0.79 0.93 1.62
+SiSEC+Pink
+F-measure 0.54 0.74 0.60 0.78
+MAE 11.34 8.03 11.37 10.18
+MAEfine 1.75 1.25 1.80 1.8
+SiSEC+V olvo
+F-measure 0.97 1.00 0.90 1.00
+MAE 0.95 0.78 4.16 1.12
+MAEfine 0.95 0.78 0.84 1.12
+SiSEC+M.Gun
+F-measure 0.97 1.00 0.86 0.99
+MAE 1.03 0.78 4.04 1.14
+MAEfine 1.03 0.78 0.85 1.03
+8. Summary and Conclusions
+In this study, nine DoA estimators (one estimator exploiting excitation source feature in the
+time domain, three estimators exploiting spectral features in STFT representation, four estima-
+tors exploiting excitation source features in SFF representation, and one using spectral features in
+SFF representation) are evaluated in terms of detection (F-measure and percentage of frames in
+which speakers are detected (α)) and accuracy metrics (gross and fine mean azimuth errors). Pub-
+licly available SiSEC and LOCATA data sets are used. Tests are conducted in high reverberation
+and low SNR conditions. The results indicate that, in SiSEC and LOCATA datasets, SFF-PHAT
+and GCC-PHAT are the best performing estimators with comparable performance. The proposed
+SFF-PHAT-env is the next best. In noise added SiSEC data, SFF-PHAT performs better than all
+the estimators and outperforms the GCC-PHAT. SFF-PHAT-env and GCC-PHAT have comparable
+performances. GCC operation in the SFF domain gives more robust performance than the GCC
+operation in the STFT domain, as evident by comparing SFF-PHAT with GCC-PHAT. In addi-
+30
+
+===== PDF page 31 =====
+
+tion, in the SFF domain the spectral features seem more robust to degradations than the temporal
+features as evident by comparing SFF-PHAT (exploits spectral features) with SFF-PHAT-env (ex-
+ploits temporal features). Further, we show that the SFF-PHAT has lower MAE than theweighted
+GCC-PHAT in all the noises and further, is comparable to theweightedGCC-PHAT in other met-
+rics, proving the robustness of DoA estimation using SFF-PHAT.
+References
+[1] S. Thakallapalli, S. R. Kadiri, S. V . Gangashetty, Spectral Features Derived from Single
+Frequency Filter for Multispeaker Localization, in: Proc. National Conference on Commu-
+nications (NCC), 2020, pp. 1–6.
+[2] B. D. Van Veen, K. M. Buckley, Beamforming: A Versatile Approach to Spatial Filtering,
+IEEE ASSP Magazine 5 (2) (1988) 4–24.
+[3] M. Taseska, E. A. P. Habets, DOA-informed source extraction in the presence of competing
+talkers and background noise, EURASIP Journal on Advances in Signal Processingdoi:
+10.1186/s13634-017-0495-7.
+[4] S. U. N. Wood, J. Rouat, Unsupervised Low Latency Speech Enhancement with RT-GCC-
+NMF, IEEE Journal of Selected Topics in Signal Processing 13 (2) (2019) 332–346.
+[5] S. U. N. Wood, J. Rouat, S. Dupont, G. Pironkov, Blind Speech Separation and Enhancement
+with GCC-NMF, IEEE Trans. Audio, Speech, and Language Processing (TASLP) 25 (4)
+(2017) 745–755.
+[6] P. Pertilä, Online Blind Speech Separation Using Multiple Acoustic Speaker Tracking and
+Time-Frequency Masking, Computer Speech and Language 27 (3) (2013) 683 – 702.
+[7] C. Knapp, G. Carter, The Generalized Correlation Method for Estimation of Time Delay,
+IEEE Trans. Acoustics Speech and Signal Processing (TASSP) 24 (4) (1976) 320–327.
+[8] V . C. Raykar, B. Yegnanarayana, S. R. M. Prasanna, R. Duraiswami, Speaker Localization
+Using Excitation Source Information in Speech, IEEE Trans. Speech and Audio Processing
+(TSAP) 13 (5) (2005) 751–761.
+[9] F. Christof, M. Juha, Source Localization in Complex Listening Situations: Selection of
+Binaural Cues Based on Interaural Coherence, JASA 116 (5) (2004) 3075–3089.
+[10] B. Loesch, B. Yang, Source Number Estimation and Clustering for Under-Determined
+Blind Source Separation, in: Proc. IEEE Int. Workshop on Acoustic Signal Enhancement
+(IW AENC), 2008.
+[11] J. Mouba, H. Marchand, Source Localization, Separation, Respatialization System Based on
+Unsupervised Classification of Interaural Cues, in: Proc. Conf. Digital Audio Effects, 2006,
+pp. 233–238.
+31
+
+===== PDF page 32 =====
+
+[12] H. Viste, G. Evangelista, On the Use of Spatial Cues to Improve Binaural Source Separation,
+in: Proc. Conf. Digital Audio Effects, 2003, pp. 209–213.
+[13] N. Madhu, R. Martin, A Scalable Framework for Multiple Speaker Localization and Track-
+ing, in: Proc. IEEE Int. Workshop on Acoustic Signal Enhancement (IW AENC), 2008, pp.
+1–4.
+[14] N. Murthy, B. Yegnanarayana, and S. R. Kadiri, Time Delay Estimation from Mixed Mul-
+tispeaker Speech Signals Using Single Frequency Filtering, Circuits, Systems, and Signal
+Processing.
+[15] G. Aneeja, B. Yegnanarayana, Extraction of Fundamental Frequency From Degraded Speech
+Using Temporal Envelopes at High SNR Frequencies, IEEE Trans. Audio, Speech, and Lan-
+guage Processing (TASLP) 25 (4) (2017) 829–838.doi:10.1109/TASLP.2017.2666425.
+[16] V . Pannala, G. Aneeja, S. R. Kadiri, B. Yegnanarayana, Robust Estimation of Fundamen-
+tal Frequency Using Single Frequency Filtering Approach, in: Proc. Int. Conf. on Speech
+Communication and Technology (INTERSPEECH), 2016, pp. 2155–2159.
+[17] S. R. Kadiri, B. Yegnanarayana, Epoch Extraction from Emotional Speech using Single Fre-
+quency Filtering Approach, Speech Communication 86 (2017) 52 – 63.
+[18] N. Murthy, J. Satyanarayana, N. Chennupati, B. Yegnanarayana, Instantaneous Time De-
+lay Estimation of Broadband Signals, in: Proc. Int. Conf. on Speech Communication and
+Technology (INTERSPEECH), 2020.
+[19] T. Virtanen, J. F. Gemmeke, B. Raj, P. Smaragdis, Compositional Models for Audio Pro-
+cessing: Uncovering the Structure of Sound Mixtures, IEEE Signal Processing Magazine 32
+(2015) 125–144.
+[20] M. Zhong-Qiu Wang, Deep Learning Based Array Processing for Speech Separation, Local-
+ization, and Recognition, Ph.D. dissertation, The Ohio State University (2020).
+[21] C. Zhang, D. Florencio, Z. Zhang, Why Does PHAT Work Well in Lownoise, Reverbera-
+tive Environments?, in: Proc. Int. Conf. Acoustics Speech and Signal Processing (ICASSP),
+2008, pp. 2565–2568.
+[22] G. Aneeja, B. Yegnanarayana, Single Frequency Filtering Approach for Discriminating
+Speech and Nonspeech, IEEE Trans. Audio, Speech, and Language Processing (TASLP)
+23 (4) (2015) 705–717.
+[23] K. Gurugubelli and A. K. Vuppala, Perceptually Enhanced Single Frequency Filtering for
+Dysarthric Speech Detection and Intelligibility Assessment, in: Proc. Int. Conf. Acoustics
+Speech and Signal Processing (ICASSP), 2019, pp. 6410–6414.
+[24] N. Chennupati, S. R. Kadiri, B. Yegnanarayana, Significance of Phase in Single Frequency
+Filtering Outputs of Speech Signals, Speech Communication 97 (2018) 66 – 72.
+32
+
+===== PDF page 33 =====
+
+[25] N. Ono, Z. Koldovský, S. Miyabe, N. Ito, The 2013 Signal Separation Evaluation Campaign,
+in: Proc. IEEE Int. Workshop on Machine Learning for Signal Processing (MLSP), 2013, pp.
+1–6.
+[26] H. W. Löllmann, C. Evers, A. Schmidt, H. Mellmann, H. Barfuss, P. A. Naylor, W. Keller-
+mann, The LOCATA Challenge Data Corpus for Acoustic Source Localization and Track-
+ing, in: Proc. Sensor Array and Multichannel Signal Processing Workshop (SAM), 2018, pp.
+410–414.
+[27] C. Veaux, J. Yamagishi, K. MacDonald, English Multi-speaker Corpus for CSTR V oice
+Cloning Toolkit, The Centre for Speech Technology Research (CSTR), University of Ed-
+inburgh (2019).
+URLhttps://doi.org/10.7488/ds/2645
+[28] J. Makhoul, Linear prediction: A Tutorial Review, Proceedings of the IEEE 63 (4) (1975)
+561–580.doi:10.1109/PROC.1975.9792.
+[29] G. Heinzel, A. Rüdiger, R. Schilling, Spectrum and Spectral Density Estimation by the
+Discrete Fourier Transform (DFT), Including a Comprehensive List of Window Functions
+and Some New At-Top Windows, Tech. rep., Albert-Einstein-Institute, Hannover,Germany
+(2002).
+[30] J. DiBiase, A High-Accuracy, Low-Latency Technique for Talker Localization in Reverber-
+ant Environments, Ph.D. dissertation, Brown University, Providence RI, USA, (2000).
+[31] A. Varga, H. J. Steeneken, Assessment for Automatic Speech Recognition: II. NOISEX-92:
+A Database and an Experiment to Study the Effect of Additive Noise on Speech Recognition
+Systems, Speech Communication 12 (3) (1993) 247 – 251.
+[32] B. Yegnanarayana, C. Avendano, H. Hermansky, P. S. Murthy, Speech Enhancement Using
+Linear Prediction Residual, Speech Communication 28 (1) (1999) 25 – 42.
+[33] J. Valin, F. Michaud, J. Rouat, D. Letourneau, Robust Sound Source Localization using
+a Microphone Array on a Mobile Robot, in: Proc. IEEE/RSJ International Conference on
+Intelligent Robots and Systems (IROS), V ol. 2, 2003, pp. 1228–1233.
+[34] N. Roman, D. Wang, G. J. Brown, Speech Segregation Based on Sound Localization, Journal
+of the Acoustical Soceity of America (JASA) 114 (4) (2003) 2236–2252.
+[35] C. Blandin, A. Ozerov, E. Vincent, Multi-Source TDOA Estimation in Reverberant Audio
+Using Angular Spectra and Clustering, Signal Processing 92 (8) (2012) 1950 – 1960.
+[36] J.-M. Valin, F. Michaud, J. Rouat, Robust Localization and Tracking of Simultaneous Mov-
+ing Sound Sources using Beamforming and Particle Filtering, Robotics and Autonomous
+Systems 55 (3) (2007) 216–228.
+33
+
+===== PDF page 34 =====
+
+[37] F. Grondin, F. Michaud, Time Difference of Arrival Estimation Based on Binary Frequency
+Mask for Sound Source Localization on Mobile Robots, in: Proc. IEEE/RSJ International
+Conference on Intelligent Robots and Systems (IROS), 2015, pp. 6149–6154.
+[38] Z. Wang, X. Zhang, D. Wang, Robust Speaker Localization Guided by Deep Learning-Based
+Time-Frequency Masking, IEEE Trans. Audio, Speech, and Language Processing (TASLP)
+27 (1) (2019) 178–188.
+[39] S. Thakallapalli, S. V . Gangashetty, N. Madhu, NMF-weighted SRP for Multi-speaker Di-
+rection of Arrival Estimation: Robustness to Spatial Aliasing while Exploiting Sparsity in
+the Atom-Time Domain, EURASIP J. Audio Speech Music. Process. 2021 (1) (2021) 13.
+doi:10.1186/s13636-021-00201-y.
+URLhttps://doi.org/10.1186/s13636-021-00201-y
+34
